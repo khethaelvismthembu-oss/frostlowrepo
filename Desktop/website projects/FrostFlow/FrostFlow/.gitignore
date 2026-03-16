@@ -1,0 +1,10 @@
+# Client data — never commit to git (contains personal info + hashed passwords)
+data/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

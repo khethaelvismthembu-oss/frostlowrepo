@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: frostflow
+    env: node
+    plan: free
+    buildCommand: echo "No build step required"
+    startCommand: node .claude/serve.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false   # set manually in Render dashboard → Environment
+      - key: SUPABASE_KEY
+        sync: false   # set manually in Render dashboard → Environment

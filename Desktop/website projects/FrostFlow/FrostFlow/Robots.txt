@@ -1,0 +1,1 @@
+User-agent: *Allow: /Prevent indexing of standard development or backend paths if you add a CMS laterDisallow: /admin/Disallow: /wp-admin/Disallow: /private/Point search engines directly to the XML sitemapSitemap: https://www.google.com/search?q=https://frostflow.co.za/sitemap.xml

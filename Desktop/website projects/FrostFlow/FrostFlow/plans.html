@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance Plans | FrostFlow Refrigeration</title>
+    <meta name="description" content="Choose a FrostFlow maintenance plan. Full coverage for domestic fridges, air conditioning, and commercial refrigeration in the Western Cape.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❄️</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter','sans-serif'] },
+                    colors: {
+                        brand: {
+                            blue:'#004aad', dark:'#00337a', teal:'#00b87c',
+                            tealDark:'#009565', green:'#00a65a', greenDark:'#008548'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background:#fff; overflow-x:hidden; }
+        .step-line::after { content:''; position:absolute; top:2rem; left:calc(50% + 2rem); right:calc(-50% + 2rem); height:2px; background:linear-gradient(90deg,#004aad,#00b87c); }
+        @media(max-width:767px){ .step-line::after { display:none; } }
+        .plan-card { transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease; }
+        .plan-card:hover { transform: translateY(-8px); box-shadow: 0 24px 48px rgba(0,0,0,0.14); }
+        .check-item { display:flex; gap:0.75rem; align-items:flex-start; }
+        .cross-item { display:flex; gap:0.75rem; align-items:flex-start; opacity:0.7; }
+    </style>
+</head>
+<body class="text-slate-900 antialiased font-sans">
+
+    <!-- Nav -->
+    <header class="sticky top-0 z-50 bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-3">
+            <a href="index.html" class="flex items-center gap-3">
+                <img src="images/frostflowlogo.png" alt="FrostFlow" class="h-9 w-auto" style="filter:brightness(0) saturate(100%) invert(17%) sepia(97%) saturate(2109%) hue-rotate(205deg) brightness(94%) contrast(104%);" onerror="this.style.display='none'">
+                <span class="font-black text-brand-blue text-lg uppercase tracking-tight">FrostFlow</span>
+            </a>
+            <div class="flex items-center gap-3">
+                <a href="index.html" class="hidden sm:inline text-xs font-bold text-slate-600 hover:text-brand-blue uppercase tracking-wide transition-colors">← Back to Home</a>
+                <a href="signin.html" class="bg-brand-blue text-white px-5 py-2.5 text-xs font-black uppercase tracking-wider hover:bg-brand-dark transition-colors rounded-full shadow">Sign In</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="bg-gradient-to-br from-slate-900 via-brand-dark to-slate-900 text-white py-20 relative overflow-hidden">
+        <div class="absolute inset-0 opacity-10" style="background-image:repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%);background-size:20px 20px;"></div>
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+            <div class="inline-flex items-center gap-2 bg-brand-teal/20 border border-brand-teal/30 text-brand-teal px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider mb-6">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                Comprehensive Coverage Plans
+            </div>
+            <h1 class="text-4xl sm:text-6xl font-black uppercase tracking-tight mb-6">Maintenance <span class="text-brand-teal">Plans</span></h1>
+            <p class="text-slate-300 text-lg sm:text-xl max-w-2xl mx-auto font-medium leading-relaxed">
+                Protect your investment with a FrostFlow service agreement. Fixed monthly fee. Zero surprise repair bills. Priority technician access — guaranteed.
+            </p>
+            <div class="flex flex-wrap justify-center gap-6 mt-10 text-sm font-bold text-slate-300">
+                <div class="flex items-center gap-2"><svg class="w-5 h-5 text-brand-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>No call-out fees</div>
+                <div class="flex items-center gap-2"><svg class="w-5 h-5 text-brand-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Certified technicians</div>
+                <div class="flex items-center gap-2"><svg class="w-5 h-5 text-brand-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>12-month service agreement</div>
+                <div class="flex items-center gap-2"><svg class="w-5 h-5 text-brand-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Cancel anytime after 3 months</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="py-20 bg-slate-50 border-b border-slate-200">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-14">
+                <h2 class="text-3xl sm:text-4xl font-black uppercase tracking-tight text-slate-900 mb-3">How It Works</h2>
+                <div class="w-20 h-1 bg-brand-teal mx-auto"></div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 relative">
+                <div class="text-center relative step-line">
+                    <div class="w-16 h-16 bg-brand-blue text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-black shadow-lg">1</div>
+                    <h3 class="font-black text-slate-900 uppercase text-sm tracking-wide mb-2">Choose Your Plan</h3>
+                    <p class="text-slate-500 text-sm font-medium">Select the plan that fits your home or business needs and budget.</p>
+                </div>
+                <div class="text-center relative step-line">
+                    <div class="w-16 h-16 bg-brand-teal text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-black shadow-lg">2</div>
+                    <h3 class="font-black text-slate-900 uppercase text-sm tracking-wide mb-2">Create Your Account</h3>
+                    <p class="text-slate-500 text-sm font-medium">Register securely with your contact and unit details. Takes 60 seconds.</p>
+                </div>
+                <div class="text-center relative step-line">
+                    <div class="w-16 h-16 bg-brand-blue text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-black shadow-lg">3</div>
+                    <h3 class="font-black text-slate-900 uppercase text-sm tracking-wide mb-2">Sign Agreement</h3>
+                    <p class="text-slate-500 text-sm font-medium">Digitally sign your service agreement from your client dashboard.</p>
+                </div>
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-brand-teal text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-black shadow-lg">4</div>
+                    <h3 class="font-black text-slate-900 uppercase text-sm tracking-wide mb-2">Stay Protected</h3>
+                    <p class="text-slate-500 text-sm font-medium">Call us any time. We arrive, we fix it, you pay nothing extra.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Plan Cards -->
+    <section class="py-20 bg-white" id="plans">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-14">
+                <h2 class="text-3xl sm:text-4xl font-black uppercase tracking-tight text-slate-900 mb-3">Choose Your Cover</h2>
+                <div class="w-20 h-1 bg-brand-blue mx-auto mb-4"></div>
+                <p class="text-slate-500 font-medium max-w-xl mx-auto">All plans include a 12-month service agreement, free labour, and priority scheduling. Transparent monthly billing — no hidden costs.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+
+                <!-- Plan 1: Domestic Fridge -->
+                <div class="plan-card border-2 border-slate-200 rounded-2xl overflow-hidden flex flex-col" id="domestic">
+                    <div class="bg-brand-blue p-8 text-white">
+                        <div class="flex items-center gap-3 mb-4">
+                            <svg class="w-8 h-8 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7l1-3h16l1 3M3 7h18M10 12h4"/></svg>
+                            <h3 class="text-xl font-black uppercase tracking-tight">Domestic Fridge Cover</h3>
+                        </div>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-5xl font-black">R50</span>
+                            <span class="text-blue-200 font-bold">/month</span>
+                        </div>
+                        <p class="text-blue-200 text-sm mt-2 font-medium">Per unit. Billed monthly. Cancel after 3 months.</p>
+                    </div>
+                    <div class="p-8 flex-1 flex flex-col bg-white">
+                        <h4 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">What's Covered</h4>
+                        <div class="space-y-3 flex-1">
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Free call-out &amp; labour on all covered repairs</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Compressor replacement included</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Gas refill (freon / refrigerant)</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Thermostat &amp; fan motor repairs</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Load-shedding surge protection advice</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">1 annual preventative service clean</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Parts supplied at cost price (20% discount)</span></div>
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-slate-100">
+                            <h4 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Not Covered</h4>
+                            <div class="space-y-2">
+                                <div class="cross-item"><svg class="w-4 h-4 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><span class="text-xs text-slate-400 font-medium">Physical damage / cosmetic repairs</span></div>
+                                <div class="cross-item"><svg class="w-4 h-4 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><span class="text-xs text-slate-400 font-medium">Units older than 15 years (assessment required)</span></div>
+                                <div class="cross-item"><svg class="w-4 h-4 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><span class="text-xs text-slate-400 font-medium">Modifications made by third parties</span></div>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-xs text-slate-400 font-medium">
+                            <span class="font-bold text-slate-600">Response time:</span> Within 24 hours (weekdays 08:00–17:00)
+                        </div>
+                        <a href="signin.html?plan=domestic" class="mt-6 block w-full py-4 bg-brand-blue text-white text-center font-black uppercase tracking-wider text-sm hover:bg-brand-dark transition-colors rounded-xl shadow-md">
+                            Get Started →
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Plan 2: Air Conditioning (Popular) -->
+                <div class="plan-card border-2 border-brand-teal rounded-2xl overflow-hidden flex flex-col relative shadow-xl" id="aircon">
+                    <div class="absolute top-0 left-0 right-0 bg-slate-900 text-white text-center py-2 text-xs font-black uppercase tracking-widest">⭐ Most Popular</div>
+                    <div class="bg-brand-teal pt-14 pb-8 px-8 text-white">
+                        <div class="flex items-center gap-3 mb-4">
+                            <svg class="w-8 h-8 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+                            <h3 class="text-xl font-black uppercase tracking-tight">Air Conditioning Cover</h3>
+                        </div>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-5xl font-black">R100</span>
+                            <span class="text-teal-100 font-bold">/month</span>
+                        </div>
+                        <p class="text-teal-100 text-sm mt-2 font-medium">Per unit. Billed monthly. Cancel after 3 months.</p>
+                    </div>
+                    <div class="p-8 flex-1 flex flex-col bg-white">
+                        <h4 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">What's Covered</h4>
+                        <div class="space-y-3 flex-1">
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Free annual full service &amp; deep clean</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Major repairs covered (compressor, PCB boards)</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Gas top-up / recharge (R22, R32, R410A)</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Fan motor &amp; capacitor replacement</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Improved energy efficiency certification</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Weekday &amp; Saturday service (08:00–14:00)</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Priority 8-hour response window</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Drain line flush &amp; filter replacement</span></div>
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-slate-100">
+                            <h4 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Not Covered</h4>
+                            <div class="space-y-2">
+                                <div class="cross-item"><svg class="w-4 h-4 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><span class="text-xs text-slate-400 font-medium">New unit installation (separate quote)</span></div>
+                                <div class="cross-item"><svg class="w-4 h-4 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><span class="text-xs text-slate-400 font-medium">Electrical wiring outside the unit</span></div>
+                                <div class="cross-item"><svg class="w-4 h-4 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><span class="text-xs text-slate-400 font-medium">Accidental or flood/storm damage</span></div>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-xs text-slate-400 font-medium">
+                            <span class="font-bold text-slate-600">Response time:</span> Within 8 hours (priority scheduling)
+                        </div>
+                        <a href="signin.html?plan=aircon" class="mt-6 block w-full py-4 bg-brand-teal text-white text-center font-black uppercase tracking-wider text-sm hover:bg-brand-tealDark transition-colors rounded-xl shadow-md">
+                            Get Started →
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Plan 3: Commercial -->
+                <div class="plan-card border-2 border-slate-700 rounded-2xl overflow-hidden flex flex-col" id="commercial">
+                    <div class="bg-slate-900 p-8 text-white">
+                        <div class="flex items-center gap-3 mb-4">
+                            <svg class="w-8 h-8 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                            <h3 class="text-xl font-black uppercase tracking-tight">Commercial Unit Cover</h3>
+                        </div>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-5xl font-black text-brand-green">R250</span>
+                            <span class="text-slate-400 font-bold">/month</span>
+                        </div>
+                        <p class="text-slate-400 text-sm mt-2 font-medium">Per unit. Billed monthly. Rolling contract.</p>
+                    </div>
+                    <div class="p-8 flex-1 flex flex-col bg-white">
+                        <h4 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">What's Covered</h4>
+                        <div class="space-y-3 flex-1">
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-green shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Retail display fridges &amp; under-counter units</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-green shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Unlimited emergency call-outs</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-green shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">All labour &amp; standard parts covered</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-green shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">After-hours &amp; weekend emergency line access</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-green shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">4-hour emergency response SLA</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-green shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Annual service &amp; temperature audit</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-green shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Dedicated account manager assigned</span></div>
+                            <div class="check-item"><svg class="w-5 h-5 text-brand-green shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span class="text-sm font-medium text-slate-700">Service report on every visit (compliance ready)</span></div>
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-slate-100">
+                            <h4 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Not Covered</h4>
+                            <div class="space-y-2">
+                                <div class="cross-item"><svg class="w-4 h-4 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><span class="text-xs text-slate-400 font-medium">Structural cold room build or renovation</span></div>
+                                <div class="cross-item"><svg class="w-4 h-4 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><span class="text-xs text-slate-400 font-medium">External power supply or DB board faults</span></div>
+                                <div class="cross-item"><svg class="w-4 h-4 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><span class="text-xs text-slate-400 font-medium">Consumables (gaskets, seals) billed at cost</span></div>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-xs text-slate-400 font-medium">
+                            <span class="font-bold text-slate-600">Response time:</span> 4-hour SLA, after-hours emergency line
+                        </div>
+                        <a href="signin.html?plan=commercial" class="mt-6 block w-full py-4 bg-slate-900 text-white text-center font-black uppercase tracking-wider text-sm hover:bg-slate-700 transition-colors rounded-xl shadow-md">
+                            Get Started →
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Plan comparison note -->
+            <p class="text-center text-sm text-slate-500 mt-10 font-medium">
+                All prices are per unit per month. Multi-unit discounts available —
+                <a href="index.html#contact" class="text-brand-blue font-bold hover:underline">contact us for a custom quote</a>.
+                Plans are subject to our
+                <a href="legal.html" class="text-brand-blue font-bold hover:underline" target="_blank">Service Agreement &amp; Terms</a>.
+            </p>
+        </div>
+    </section>
+
+    <!-- Coverage Guarantee -->
+    <section class="py-16 bg-slate-50 border-t border-slate-200">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+                <div class="p-8 bg-white rounded-2xl shadow-sm border border-slate-100">
+                    <div class="w-14 h-14 bg-brand-blue/10 rounded-xl flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-7 h-7 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    </div>
+                    <h3 class="font-black text-slate-900 text-lg mb-2">Workmanship Guarantee</h3>
+                    <p class="text-slate-500 text-sm font-medium">All repairs are guaranteed for 90 days. If the same fault recurs, we return free of charge.</p>
+                </div>
+                <div class="p-8 bg-white rounded-2xl shadow-sm border border-slate-100">
+                    <div class="w-14 h-14 bg-brand-teal/10 rounded-xl flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-7 h-7 text-brand-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <h3 class="font-black text-slate-900 text-lg mb-2">Response Commitment</h3>
+                    <p class="text-slate-500 text-sm font-medium">We meet our stated response times or we credit your next month's subscription — no questions asked.</p>
+                </div>
+                <div class="p-8 bg-white rounded-2xl shadow-sm border border-slate-100">
+                    <div class="w-14 h-14 bg-brand-blue/10 rounded-xl flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-7 h-7 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    </div>
+                    <h3 class="font-black text-slate-900 text-lg mb-2">Transparent Billing</h3>
+                    <p class="text-slate-500 text-sm font-medium">One fixed monthly amount. No surprise invoices. Parts above plan limit listed on quote before work begins.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="py-16 bg-brand-blue text-white text-center">
+        <div class="max-w-2xl mx-auto px-4 sm:px-6">
+            <h2 class="text-3xl sm:text-4xl font-black uppercase tracking-tight mb-4">Ready to sign up?</h2>
+            <p class="text-blue-200 font-medium mb-8 text-lg">Create your account in under a minute. Your first service call is on us.</p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="signin.html" class="px-10 py-4 bg-white text-brand-blue font-black uppercase tracking-wider text-sm hover:bg-blue-50 transition-colors rounded-full shadow-lg">
+                    Create Account
+                </a>
+                <a href="legal.html" target="_blank" class="px-10 py-4 bg-white/10 border border-white/30 text-white font-bold uppercase tracking-wider text-sm hover:bg-white/20 transition-colors rounded-full">
+                    Read Full Terms
+                </a>
+            </div>
+            <p class="text-blue-300 text-xs mt-6 font-medium">By creating an account you agree to our <a href="legal.html" class="underline" target="_blank">Service Agreement</a>. Cancel after 3 months with 30 days' notice.</p>
+        </div>
+    </section>
+
+    <!-- Mini footer -->
+    <footer class="bg-slate-900 text-slate-500 text-xs py-6 text-center font-medium">
+        <p>© 2025 FrostFlow Refrigeration. Blackheath, Cape Town, Western Cape.
+        <a href="tel:+27738160885" class="text-brand-teal hover:text-white transition-colors">+27 73 816 0885</a> ·
+        <a href="mailto:sales@frostflow.co.za" class="text-brand-teal hover:text-white transition-colors">sales@frostflow.co.za</a></p>
+    </footer>
+
+    <script>
+        // Pre-select plan from URL param (highlight chosen plan card)
+        const urlPlan = new URLSearchParams(location.search).get('plan');
+        if (urlPlan) {
+            const el = document.getElementById(urlPlan);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.outline = '3px solid #00b87c';
+            }
+        }
+    </script>
+</body>
+</html>

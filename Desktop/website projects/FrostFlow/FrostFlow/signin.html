@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | FrostFlow Client Portal</title>
+    <meta name="robots" content="noindex">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❄️</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter','sans-serif'] },
+                    colors: { brand: { blue:'#004aad', dark:'#00337a', teal:'#00b87c', tealDark:'#009565' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: linear-gradient(135deg, #0f172a 0%, #004aad 50%, #00337a 100%); min-height: 100vh; }
+        .auth-card { background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); }
+        .tab-btn { transition: all 0.2s ease; }
+        .tab-btn.active { background:#004aad; color:#fff; }
+        .input-field { width:100%; padding:0.75rem 1rem; border:2px solid #e2e8f0; border-radius:0.5rem; font-size:0.9375rem; font-weight:500; color:#0f172a; transition:border-color 0.2s; outline:none; }
+        .input-field:focus { border-color:#004aad; box-shadow:0 0 0 3px rgba(0,74,173,0.12); }
+        .input-field.error { border-color:#ef4444; }
+        .error-msg { color:#ef4444; font-size:0.8125rem; font-weight:600; margin-top:0.25rem; display:none; }
+        .error-msg.show { display:block; }
+        .strength-bar { height:4px; border-radius:2px; transition:width 0.3s, background 0.3s; }
+        .plan-badge { display:inline-flex; align-items:center; gap:0.4rem; padding:0.25rem 0.75rem; border-radius:9999px; font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+        .fade-in { animation: fadeIn 0.3s ease forwards; }
+    </style>
+</head>
+<body class="font-sans antialiased flex flex-col min-h-screen">
+
+    <!-- Back link -->
+    <div class="p-4 no-shrink">
+        <a href="plans.html" class="inline-flex items-center gap-2 text-white/70 hover:text-white text-xs font-bold uppercase tracking-wide transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            Back to Plans
+        </a>
+    </div>
+
+    <main class="flex-1 flex items-center justify-center px-4 py-8">
+        <div class="auth-card w-full max-w-md rounded-3xl shadow-2xl overflow-hidden fade-in">
+
+            <!-- Header -->
+            <div class="bg-slate-900 px-8 py-6 text-white text-center">
+                <img src="images/frostflowlogo.png" alt="FrostFlow" class="h-10 w-auto mx-auto mb-3" style="filter:brightness(0) invert(1);" onerror="this.style.display='none'">
+                <h1 class="text-xl font-black uppercase tracking-tight">FrostFlow Client Portal</h1>
+                <p class="text-slate-400 text-xs mt-1 font-medium">Manage your maintenance plan</p>
+                <!-- Plan selected badge -->
+                <div id="plan-badge-wrap" class="mt-3 hidden">
+                    <span class="plan-badge bg-brand-teal/20 text-brand-teal border border-brand-teal/30">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        <span id="plan-badge-text">Plan Selected</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex border-b border-slate-200 bg-slate-50">
+                <button id="tab-login" class="tab-btn active flex-1 py-3.5 text-sm font-black uppercase tracking-wide" onclick="switchTab('login')">Sign In</button>
+                <button id="tab-register" class="tab-btn flex-1 py-3.5 text-sm font-black uppercase tracking-wide text-slate-500" onclick="switchTab('register')">Create Account</button>
+            </div>
+
+            <!-- Alert banner -->
+            <div id="alert" class="hidden mx-6 mt-4 px-4 py-3 rounded-xl text-sm font-bold"></div>
+
+            <div class="px-8 py-6">
+
+                <!-- ── LOGIN FORM ── -->
+                <form id="login-form" onsubmit="handleLogin(event)">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5">Email Address</label>
+                            <input id="login-email" type="email" class="input-field" placeholder="you@example.com" required autocomplete="email">
+                            <p class="error-msg" id="login-email-err">Please enter a valid email address.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5">Password</label>
+                            <div class="relative">
+                                <input id="login-password" type="password" class="input-field pr-12" placeholder="Your password" required autocomplete="current-password">
+                                <button type="button" onclick="togglePw('login-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                </button>
+                            </div>
+                            <p class="error-msg" id="login-pw-err">Password is required.</p>
+                        </div>
+                    </div>
+                    <button type="submit" id="login-btn" class="mt-6 w-full py-4 bg-brand-blue text-white font-black uppercase tracking-wider text-sm rounded-xl hover:bg-brand-dark transition-colors shadow-lg">
+                        Sign In to My Account
+                    </button>
+                    <p class="text-center text-xs text-slate-400 mt-4 font-medium">
+                        Don't have an account?
+                        <button type="button" onclick="switchTab('register')" class="text-brand-blue font-black hover:underline">Create one free</button>
+                    </p>
+                </form>
+
+                <!-- ── REGISTER FORM ── -->
+                <form id="register-form" class="hidden" onsubmit="handleRegister(event)">
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5">First Name</label>
+                                <input id="reg-firstname" type="text" class="input-field" placeholder="John" required autocomplete="given-name">
+                                <p class="error-msg" id="reg-fn-err">Required.</p>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5">Last Name</label>
+                                <input id="reg-lastname" type="text" class="input-field" placeholder="Smith" autocomplete="family-name">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5">Email Address</label>
+                            <input id="reg-email" type="email" class="input-field" placeholder="you@example.com" required autocomplete="email">
+                            <p class="error-msg" id="reg-email-err">Please enter a valid email.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5">Phone Number</label>
+                            <input id="reg-phone" type="tel" class="input-field" placeholder="+27 73 816 0885" autocomplete="tel">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5">Select Plan</label>
+                            <select id="reg-plan" class="input-field">
+                                <option value="">— Choose a plan —</option>
+                                <option value="domestic">Domestic Fridge Cover (R50/mo)</option>
+                                <option value="aircon">Air Conditioning Cover (R100/mo)</option>
+                                <option value="commercial">Commercial Unit Cover (R250/mo)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5">Password</label>
+                            <div class="relative">
+                                <input id="reg-password" type="password" class="input-field pr-12" placeholder="Min. 8 characters" required autocomplete="new-password" oninput="checkStrength(this.value)">
+                                <button type="button" onclick="togglePw('reg-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                </button>
+                            </div>
+                            <div class="mt-1.5 bg-slate-200 rounded h-1 overflow-hidden">
+                                <div id="strength-bar" class="strength-bar h-full w-0"></div>
+                            </div>
+                            <p id="strength-label" class="text-xs font-bold mt-0.5 text-slate-400"></p>
+                            <p class="error-msg" id="reg-pw-err">Password must be at least 8 characters.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5">Confirm Password</label>
+                            <input id="reg-confirm" type="password" class="input-field" placeholder="Repeat password" required autocomplete="new-password">
+                            <p class="error-msg" id="reg-confirm-err">Passwords do not match.</p>
+                        </div>
+                        <div class="flex items-start gap-3 pt-1">
+                            <input id="reg-terms" type="checkbox" required class="mt-0.5 accent-brand-blue w-4 h-4 cursor-pointer">
+                            <label for="reg-terms" class="text-xs text-slate-500 font-medium leading-relaxed cursor-pointer">
+                                I have read and agree to the
+                                <a href="legal.html" target="_blank" class="text-brand-blue font-black hover:underline">Service Agreement &amp; Terms of Cover</a>.
+                                I understand the 3-month lock-in period and cancellation policy.
+                            </label>
+                        </div>
+                    </div>
+                    <button type="submit" id="reg-btn" class="mt-5 w-full py-4 bg-brand-teal text-white font-black uppercase tracking-wider text-sm rounded-xl hover:bg-brand-tealDark transition-colors shadow-lg">
+                        Create My Account
+                    </button>
+                    <p class="text-center text-xs text-slate-400 mt-4 font-medium">
+                        Already have an account?
+                        <button type="button" onclick="switchTab('login')" class="text-brand-blue font-black hover:underline">Sign in here</button>
+                    </p>
+                </form>
+
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-white/30 text-xs text-center py-4 font-medium">
+        © 2025 FrostFlow Refrigeration · <a href="tel:+27738160885" class="hover:text-white/70">+27 73 816 0885</a>
+    </footer>
+
+    <script>
+    (function() {
+        // ── Read URL params
+        const params = new URLSearchParams(location.search);
+        const planParam = params.get('plan');
+        const planLabels = { domestic:'Domestic Fridge Cover', aircon:'Air Conditioning Cover', commercial:'Commercial Unit Cover' };
+
+        // Show plan badge if plan pre-selected
+        if (planParam && planLabels[planParam]) {
+            document.getElementById('plan-badge-wrap').classList.remove('hidden');
+            document.getElementById('plan-badge-text').textContent = planLabels[planParam] + ' Selected';
+            // Switch to register tab so new users flow naturally
+            switchTab('register');
+            // Pre-select in dropdown
+            const sel = document.getElementById('reg-plan');
+            if (sel) sel.value = planParam;
+        }
+
+        // ── Tab switching
+        window.switchTab = function(tab) {
+            const isLogin = tab === 'login';
+            document.getElementById('login-form').classList.toggle('hidden', !isLogin);
+            document.getElementById('register-form').classList.toggle('hidden', isLogin);
+            document.getElementById('tab-login').classList.toggle('active', isLogin);
+            document.getElementById('tab-register').classList.toggle('active', !isLogin);
+            document.getElementById('tab-login').classList.toggle('text-slate-500', !isLogin);
+            document.getElementById('tab-register').classList.toggle('text-slate-500', isLogin);
+            clearAlert();
+        };
+
+        // ── Alert helper
+        function showAlert(msg, type) {
+            const el = document.getElementById('alert');
+            el.textContent = msg;
+            el.className = 'mx-6 mt-4 px-4 py-3 rounded-xl text-sm font-bold ' +
+                (type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200');
+            el.classList.remove('hidden');
+        }
+        function clearAlert() { document.getElementById('alert').classList.add('hidden'); }
+
+        // ── Show/hide password toggle
+        window.togglePw = function(id, btn) {
+            const input = document.getElementById(id);
+            input.type = input.type === 'password' ? 'text' : 'password';
+        };
+
+        // ── Password strength meter
+        window.checkStrength = function(pw) {
+            const bar   = document.getElementById('strength-bar');
+            const label = document.getElementById('strength-label');
+            let score = 0;
+            if (pw.length >= 8)  score++;
+            if (pw.length >= 12) score++;
+            if (/[A-Z]/.test(pw)) score++;
+            if (/[0-9]/.test(pw)) score++;
+            if (/[^A-Za-z0-9]/.test(pw)) score++;
+            const levels = [
+                { w:'0%',   bg:'#ef4444', text:'' },
+                { w:'25%',  bg:'#ef4444', text:'Weak' },
+                { w:'50%',  bg:'#f59e0b', text:'Fair' },
+                { w:'75%',  bg:'#3b82f6', text:'Good' },
+                { w:'100%', bg:'#22c55e', text:'Strong' }
+            ];
+            const lvl = levels[Math.min(score, 4)];
+            bar.style.width = lvl.w;
+            bar.style.background = lvl.bg;
+            label.textContent = lvl.text;
+            label.style.color = lvl.bg;
+        };
+
+        function setLoading(btnId, loading) {
+            const btn = document.getElementById(btnId);
+            btn.disabled = loading;
+            btn.textContent = loading ? 'Please wait…' : btn.dataset.orig;
+        }
+        // Store original button text
+        ['login-btn','reg-btn'].forEach(id => {
+            const b = document.getElementById(id);
+            if (b) b.dataset.orig = b.textContent;
+        });
+
+        // ── Handle Login
+        window.handleLogin = async function(e) {
+            e.preventDefault();
+            clearAlert();
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            if (!email || !password) { showAlert('Please fill in all fields.', 'error'); return; }
+            setLoading('login-btn', true);
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (!res.ok) { showAlert(data.error || 'Login failed. Please try again.', 'error'); return; }
+                showAlert('Welcome back, ' + data.firstName + '! Redirecting…', 'success');
+                setTimeout(() => { location.href = 'dashboard.html'; }, 900);
+            } catch(err) {
+                showAlert('Network error. Please ensure the server is running.', 'error');
+            } finally {
+                setLoading('login-btn', false);
+            }
+        };
+
+        // ── Handle Register
+        window.handleRegister = async function(e) {
+            e.preventDefault();
+            clearAlert();
+            // Validate
+            let valid = true;
+            const firstName = document.getElementById('reg-firstname').value.trim();
+            const lastName  = document.getElementById('reg-lastname').value.trim();
+            const email     = document.getElementById('reg-email').value.trim();
+            const phone     = document.getElementById('reg-phone').value.trim();
+            const plan      = document.getElementById('reg-plan').value;
+            const password  = document.getElementById('reg-password').value;
+            const confirm   = document.getElementById('reg-confirm').value;
+
+            function fieldErr(id, show) {
+                document.getElementById(id).classList.toggle('show', show);
+                if (show) valid = false;
+            }
+            fieldErr('reg-fn-err', !firstName);
+            fieldErr('reg-email-err', !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+            fieldErr('reg-pw-err', password.length < 8);
+            fieldErr('reg-confirm-err', password !== confirm);
+
+            if (!valid) return;
+            if (!document.getElementById('reg-terms').checked) {
+                showAlert('You must agree to the Service Agreement & Terms to continue.', 'error');
+                return;
+            }
+
+            setLoading('reg-btn', true);
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firstName, lastName, email, phone, plan, password })
+                });
+                const data = await res.json();
+                if (!res.ok) { showAlert(data.error || 'Registration failed. Please try again.', 'error'); return; }
+                showAlert('Account created! Welcome, ' + data.firstName + '! Setting up your portal…', 'success');
+                setTimeout(() => { location.href = 'dashboard.html'; }, 1200);
+            } catch(err) {
+                showAlert('Network error. Please ensure the server is running.', 'error');
+            } finally {
+                setLoading('reg-btn', false);
+            }
+        };
+
+        // Remove error styling on input
+        document.querySelectorAll('.input-field').forEach(input => {
+            input.addEventListener('input', function() {
+                this.classList.remove('error');
+            });
+        });
+
+        // ── If already logged in, redirect to dashboard
+        fetch('/api/auth/me').then(r => {
+            if (r.ok) location.href = 'dashboard.html';
+        }).catch(() => {});
+
+    })();
+    </script>
+</body>
+</html>
