@@ -333,6 +333,152 @@ http.createServer((req, res) => {
     return;
   }
 
+  // POST /api/client/change-password
+  if (parsed.pathname === '/api/client/change-password' && req.method === 'POST') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const { currentPassword, newPassword } = await parseBody(req);
+        if (!currentPassword || !newPassword || newPassword.length < 8)
+          return jsonRes(res, 400, { error: 'New password must be at least 8 characters.' });
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        if (hashPassword(currentPassword, profile.passwordSalt) !== profile.passwordHash)
+          return jsonRes(res, 401, { error: 'Current password is incorrect.' });
+        const newSalt = crypto.randomBytes(32).toString('hex');
+        profile.passwordHash = hashPassword(newPassword, newSalt);
+        profile.passwordSalt = newSalt;
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(session.userId, profile);
+        jsonRes(res, 200, { ok: true });
+      } catch(e) {
+        console.error('[change-password]', e.message);
+        jsonRes(res, 500, { error: 'Password change failed.' });
+      }
+    })();
+    return;
+  }
+
+  // POST /api/client/request-cancellation
+  if (parsed.pathname === '/api/client/request-cancellation' && req.method === 'POST') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        profile.status = 'Cancellation Pending';
+        profile.cancellationRequestedAt = new Date().toISOString();
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(session.userId, profile);
+        jsonRes(res, 200, { ok: true });
+      } catch(e) {
+        console.error('[request-cancellation]', e.message);
+        jsonRes(res, 500, { error: 'Request failed. Please try again.' });
+      }
+    })();
+    return;
+  }
+
+  // GET /api/client/appliances
+  if (parsed.pathname === '/api/client/appliances' && req.method === 'GET') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        jsonRes(res, 200, { appliances: profile.appliances || [] });
+      } catch(e) {
+        jsonRes(res, 500, { error: 'Could not load appliances.' });
+      }
+    })();
+    return;
+  }
+
+  // POST /api/client/appliances — add appliance
+  if (parsed.pathname === '/api/client/appliances' && req.method === 'POST') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const { name, model, serialNo, location } = await parseBody(req);
+        if (!name) return jsonRes(res, 400, { error: 'Appliance name is required.' });
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        if (!profile.appliances) profile.appliances = [];
+        const appliance = {
+          id: crypto.randomBytes(8).toString('hex'),
+          name: name.trim(),
+          model: (model || '').trim(),
+          serialNo: (serialNo || '').trim(),
+          location: (location || '').trim(),
+          addedAt: new Date().toISOString()
+        };
+        profile.appliances.push(appliance);
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(session.userId, profile);
+        jsonRes(res, 200, { ok: true, appliance });
+      } catch(e) {
+        console.error('[add-appliance]', e.message);
+        jsonRes(res, 500, { error: 'Could not add appliance.' });
+      }
+    })();
+    return;
+  }
+
+  // DELETE /api/client/appliances/:id
+  if (parsed.pathname.startsWith('/api/client/appliances/') && req.method === 'DELETE') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const applianceId = parsed.pathname.split('/').pop();
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        profile.appliances = (profile.appliances || []).filter(a => a.id !== applianceId);
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(session.userId, profile);
+        jsonRes(res, 200, { ok: true });
+      } catch(e) {
+        jsonRes(res, 500, { error: 'Could not remove appliance.' });
+      }
+    })();
+    return;
+  }
+
+  // POST /api/client/fault-report
+  if (parsed.pathname === '/api/client/fault-report' && req.method === 'POST') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const { description, applianceId, urgency } = await parseBody(req);
+        if (!description) return jsonRes(res, 400, { error: 'Description is required.' });
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        if (!profile.faultReports) profile.faultReports = [];
+        const report = {
+          id: crypto.randomBytes(8).toString('hex'),
+          description: description.trim(),
+          applianceId: applianceId || null,
+          urgency: urgency || 'normal',
+          status: 'Logged',
+          loggedAt: new Date().toISOString()
+        };
+        profile.faultReports.push(report);
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(session.userId, profile);
+        jsonRes(res, 200, { ok: true, report });
+      } catch(e) {
+        console.error('[fault-report]', e.message);
+        jsonRes(res, 500, { error: 'Could not log fault.' });
+      }
+    })();
+    return;
+  }
+
   // ── YouTube metadata proxy ──────────────────────────────────────────────
   if (parsed.pathname === '/api/yt') {
     const videoId = parsed.searchParams.get('v');
