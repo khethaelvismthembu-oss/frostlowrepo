@@ -7,7 +7,6 @@
     <meta name="robots" content="noindex">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❄️</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
@@ -34,8 +33,19 @@
         @keyframes sonar { 0%{transform:scale(1);opacity:0.8} 100%{transform:scale(1.6);opacity:0} }
         .pulse-ring::before,.pulse-ring::after { content:''; position:absolute; inset:0; border-radius:inherit; background:inherit; animation:sonar 1.8s ease-out infinite; }
         .pulse-ring::after { animation-delay:0.9s; }
-        /* Invoice template (visually hidden but renders for PDF) */
-        #invoice-template { position:absolute; left:-9999px; top:0; width:794px; background:#fff; font-family:Arial,sans-serif; }
+        /* Toggle switch */
+        .toggle-wrap { display:flex; align-items:center; justify-content:space-between; padding:0.75rem 0; border-bottom:1px solid #f1f5f9; }
+        .toggle-wrap:last-child { border-bottom:none; }
+        .toggle { position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0; }
+        .toggle input { opacity:0; width:0; height:0; }
+        .toggle-slider { position:absolute; inset:0; background:#cbd5e1; border-radius:24px; transition:0.25s; cursor:pointer; }
+        .toggle-slider:before { content:''; position:absolute; left:3px; bottom:3px; width:18px; height:18px; background:#fff; border-radius:50%; transition:0.25s; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+        .toggle input:checked + .toggle-slider { background:#00b87c; }
+        .toggle input:checked + .toggle-slider:before { transform:translateX(20px); }
+        /* Settings section divider */
+        .settings-section { margin-bottom:2rem; }
+        .settings-section-title { font-size:0.65rem; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.875rem; display:flex; align-items:center; gap:0.5rem; }
+        .settings-section-title::after { content:''; flex:1; height:1px; background:#e2e8f0; }
     </style>
 </head>
 <body class="font-sans antialiased text-slate-900">
@@ -127,6 +137,12 @@
             <button class="tab-btn whitespace-nowrap px-5 py-4 text-xs font-black uppercase tracking-widest text-slate-500" onclick="switchTab('history')">Service History</button>
             <button class="tab-btn whitespace-nowrap px-5 py-4 text-xs font-black uppercase tracking-widest text-slate-500" onclick="switchTab('billing')">Billing &amp; Invoices</button>
             <button class="tab-btn whitespace-nowrap px-5 py-4 text-xs font-black uppercase tracking-widest text-slate-500" onclick="switchTab('account')">Account</button>
+            <button class="tab-btn whitespace-nowrap px-5 py-4 text-xs font-black uppercase tracking-widest text-slate-500" onclick="switchTab('settings')">
+                <span class="flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    Settings
+                </span>
+            </button>
         </div>
 
         <!-- ══════════════════════════════════
@@ -346,6 +362,313 @@
                 </div>
             </div>
         </div>
+        <!-- ══════════════════════════════════
+             TAB: SETTINGS
+        ══════════════════════════════════ -->
+        <div id="tab-settings" class="tab-panel p-6">
+
+            <!-- Global save message -->
+            <div id="settings-global-msg" class="hidden mb-5 text-sm font-bold rounded-xl px-4 py-3"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+                <!-- ── LEFT COLUMN ── -->
+                <div>
+
+                    <!-- 1. Service Address -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">
+                            <svg class="w-3.5 h-3.5 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            Service Address
+                        </div>
+                        <p class="text-xs text-slate-400 font-medium mb-3 -mt-1">Where our technicians come to you.</p>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Street Address</label>
+                                <input id="set-street" type="text" class="input-field" placeholder="12 Cooling Lane">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Suburb</label>
+                                    <input id="set-suburb" type="text" class="input-field" placeholder="Blackheath">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">City</label>
+                                    <input id="set-city" type="text" class="input-field" placeholder="Cape Town">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Postal Code</label>
+                                    <input id="set-postal" type="text" class="input-field" placeholder="7100" maxlength="4">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Province</label>
+                                    <select id="set-province" class="input-field">
+                                        <option value="">— Select —</option>
+                                        <option value="Western Cape">Western Cape</option>
+                                        <option value="Eastern Cape">Eastern Cape</option>
+                                        <option value="Northern Cape">Northern Cape</option>
+                                        <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                                        <option value="Gauteng">Gauteng</option>
+                                        <option value="Limpopo">Limpopo</option>
+                                        <option value="Mpumalanga">Mpumalanga</option>
+                                        <option value="Free State">Free State</option>
+                                        <option value="North West">North West</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Access Notes <span class="text-slate-300 normal-case font-medium tracking-normal">(optional)</span></label>
+                                <input id="set-access" type="text" class="input-field" placeholder="e.g. Gate code 1234, ask for reception">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Property Details -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">
+                            <svg class="w-3.5 h-3.5 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                            Property Details
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Property / Business Type</label>
+                                <select id="set-property-type" class="input-field">
+                                    <option value="">— Select type —</option>
+                                    <option value="residential">Residential Home</option>
+                                    <option value="restaurant">Restaurant / Takeaway</option>
+                                    <option value="supermarket">Supermarket / Grocery Store</option>
+                                    <option value="hotel">Hotel / Guest House</option>
+                                    <option value="office">Office / Corporate</option>
+                                    <option value="warehouse">Warehouse / Cold Storage</option>
+                                    <option value="medical">Medical / Pharmacy</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Business / Complex Name <span class="text-slate-300 normal-case font-medium tracking-normal">(if applicable)</span></label>
+                                <input id="set-business-name" type="text" class="input-field" placeholder="e.g. Spar Blackheath, The Ridge Complex">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Number of Units at This Address</label>
+                                <select id="set-unit-count" class="input-field">
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6+">6 or more</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Emergency Contact -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">
+                            <svg class="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                            Emergency / Alternate Contact
+                        </div>
+                        <p class="text-xs text-slate-400 font-medium mb-3 -mt-1">Person we call if we can't reach you on-site.</p>
+                        <div class="space-y-3">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Contact Name</label>
+                                    <input id="set-ec-name" type="text" class="input-field" placeholder="Jane Smith">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Relationship</label>
+                                    <select id="set-ec-relation" class="input-field">
+                                        <option value="">— Select —</option>
+                                        <option value="Manager">Manager / Supervisor</option>
+                                        <option value="Spouse">Spouse / Partner</option>
+                                        <option value="Colleague">Colleague</option>
+                                        <option value="Landlord">Landlord / Owner</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Mobile Number</label>
+                                <input id="set-ec-phone" type="tel" class="input-field" placeholder="+27 73 000 0000">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- ── RIGHT COLUMN ── -->
+                <div>
+
+                    <!-- 4. Billing Details -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">
+                            <svg class="w-3.5 h-3.5 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
+                            Billing Details
+                        </div>
+                        <p class="text-xs text-slate-400 font-medium mb-3 -mt-1">For commercial clients — appears on your invoices.</p>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Company / Trading Name <span class="text-slate-300 normal-case font-medium tracking-normal">(optional)</span></label>
+                                <input id="set-company" type="text" class="input-field" placeholder="e.g. Smith Enterprises (Pty) Ltd">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">VAT Number <span class="text-slate-300 normal-case font-medium tracking-normal">(optional)</span></label>
+                                <input id="set-vat" type="text" class="input-field" placeholder="e.g. 4123456789" maxlength="10">
+                                <p class="text-[10px] text-slate-400 mt-1 font-medium">Will be printed on all invoices. Leave blank if not VAT-registered.</p>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Billing Address <span class="text-slate-300 normal-case font-medium tracking-normal">(if different from service address)</span></label>
+                                <textarea id="set-billing-address" class="input-field" rows="2" placeholder="e.g. PO Box 123, Bellville, 7530"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Invoice Email <span class="text-slate-300 normal-case font-medium tracking-normal">(if different from login email)</span></label>
+                                <input id="set-invoice-email" type="email" class="input-field" placeholder="accounts@yourbusiness.co.za">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Communication Preferences -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">
+                            <svg class="w-3.5 h-3.5 text-brand-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                            Communication Preferences
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Preferred Contact Method</label>
+                                <select id="set-contact-method" class="input-field">
+                                    <option value="whatsapp">WhatsApp (recommended)</option>
+                                    <option value="phone">Phone Call</option>
+                                    <option value="email">Email Only</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Preferred Service Window</label>
+                                <select id="set-service-window" class="input-field">
+                                    <option value="any">Anytime (weekdays 08:00–17:00)</option>
+                                    <option value="morning">Morning (08:00–12:00)</option>
+                                    <option value="afternoon">Afternoon (12:00–17:00)</option>
+                                    <option value="saturday">Saturday only (08:00–13:00)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Special Instructions for Technician <span class="text-slate-300 normal-case font-medium tracking-normal">(optional)</span></label>
+                                <textarea id="set-tech-notes" class="input-field" rows="2" placeholder="e.g. Dogs on property, call before arrival, park at back gate…"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 6. Notification Preferences -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">
+                            <svg class="w-3.5 h-3.5 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                            Notification Preferences
+                        </div>
+                        <div>
+                            <div class="toggle-wrap">
+                                <div>
+                                    <p class="text-sm font-bold text-slate-800">Invoice & Payment Reminders</p>
+                                    <p class="text-xs text-slate-400 font-medium">Notify me when an invoice is due</p>
+                                </div>
+                                <label class="toggle"><input type="checkbox" id="notif-invoice" checked><span class="toggle-slider"></span></label>
+                            </div>
+                            <div class="toggle-wrap">
+                                <div>
+                                    <p class="text-sm font-bold text-slate-800">Annual Service Reminders</p>
+                                    <p class="text-xs text-slate-400 font-medium">Remind me 2 weeks before my service is due</p>
+                                </div>
+                                <label class="toggle"><input type="checkbox" id="notif-service" checked><span class="toggle-slider"></span></label>
+                            </div>
+                            <div class="toggle-wrap">
+                                <div>
+                                    <p class="text-sm font-bold text-slate-800">Fault Report Status Updates</p>
+                                    <p class="text-xs text-slate-400 font-medium">Notify me when my fault report status changes</p>
+                                </div>
+                                <label class="toggle"><input type="checkbox" id="notif-faults" checked><span class="toggle-slider"></span></label>
+                            </div>
+                            <div class="toggle-wrap">
+                                <div>
+                                    <p class="text-sm font-bold text-slate-800">Technician On-The-Way Alerts</p>
+                                    <p class="text-xs text-slate-400 font-medium">Get notified when a technician is dispatched to you</p>
+                                </div>
+                                <label class="toggle"><input type="checkbox" id="notif-dispatch" checked><span class="toggle-slider"></span></label>
+                            </div>
+                            <div class="toggle-wrap">
+                                <div>
+                                    <p class="text-sm font-bold text-slate-800">Plan Renewal Reminders</p>
+                                    <p class="text-xs text-slate-400 font-medium">Remind me 30 days before my plan renews</p>
+                                </div>
+                                <label class="toggle"><input type="checkbox" id="notif-renewal" checked><span class="toggle-slider"></span></label>
+                            </div>
+                            <div class="toggle-wrap">
+                                <div>
+                                    <p class="text-sm font-bold text-slate-800">Promotions & Seasonal Tips</p>
+                                    <p class="text-xs text-slate-400 font-medium">Summer maintenance tips, loyalty offers</p>
+                                </div>
+                                <label class="toggle"><input type="checkbox" id="notif-promo"><span class="toggle-slider"></span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ── Plan Info Banner ── -->
+            <div class="mt-2 mb-6 bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                <div class="settings-section-title">
+                    <svg class="w-3.5 h-3.5 text-brand-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    Plan & Renewal Information
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Current Plan</p>
+                        <p id="set-info-plan" class="text-sm font-black text-slate-900">—</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Plan Started</p>
+                        <p id="set-info-started" class="text-sm font-black text-slate-900">—</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Next Renewal</p>
+                        <p id="set-info-renewal" class="text-sm font-black text-brand-blue">—</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Next Service Due</p>
+                        <p id="set-info-service" class="text-sm font-black text-brand-teal">—</p>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 font-medium">To change your plan tier, <a href="plans.html" class="text-brand-blue font-bold hover:underline">view all plans</a> or call <a href="tel:+27738160885" class="text-brand-blue font-bold hover:underline">+27 73 816 0885</a>.</p>
+            </div>
+
+            <!-- ── Referral ── -->
+            <div class="mb-6 bg-gradient-to-r from-brand-teal/10 to-brand-blue/5 border border-brand-teal/20 rounded-2xl p-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="settings-section-title mb-1">
+                            <svg class="w-3.5 h-3.5 text-brand-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            Refer a Friend — Earn a Free Month
+                        </div>
+                        <p class="text-xs text-slate-500 font-medium">Share your referral code. When a friend signs up and completes their first 3 months, you both get 1 month free.</p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <div class="bg-white border-2 border-brand-teal/30 rounded-xl px-4 py-2 font-black text-brand-teal tracking-widest text-sm" id="referral-code">FF-——</div>
+                        <button onclick="copyReferralCode()" class="bg-brand-teal text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide hover:bg-brand-tealDark transition-colors whitespace-nowrap" id="copy-ref-btn">Copy Code</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Save Button ── -->
+            <div class="flex justify-end">
+                <button onclick="handleSettingsSave()" id="settings-save-btn" class="inline-flex items-center gap-2 bg-brand-blue text-white font-black uppercase tracking-wider text-sm px-8 py-3.5 rounded-xl hover:bg-brand-dark transition-colors shadow-lg">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    Save All Settings
+                </button>
+            </div>
+
+        </div><!-- /#tab-settings -->
+
     </div><!-- /.card -->
 
 </main><!-- /#dashboard-content -->
@@ -430,80 +753,6 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════
-     HIDDEN INVOICE PDF TEMPLATE
-══════════════════════════════════════════════════════ -->
-<div id="invoice-template" aria-hidden="true">
-    <div style="padding:48px; font-family:Arial,Helvetica,sans-serif; color:#0f172a;">
-        <!-- Header -->
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:40px;">
-            <div>
-                <div style="font-size:26px; font-weight:900; color:#004aad; letter-spacing:-0.5px; text-transform:uppercase;">FrostFlow</div>
-                <div style="font-size:11px; color:#64748b; margin-top:4px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">Refrigeration &amp; Air-Conditioning</div>
-                <div style="font-size:10px; color:#94a3b8; margin-top:10px; line-height:1.6;">
-                    Unit 5, Cooling Park · Blackheath, Cape Town<br>
-                    +27 73 816 0885 · sales@frostflowrefridgerations.co.za<br>
-                    www.frostflowrefridgerations.co.za
-                </div>
-            </div>
-            <div style="text-align:right;">
-                <div style="font-size:28px; font-weight:900; color:#0f172a; text-transform:uppercase;">Invoice</div>
-                <div style="font-size:12px; color:#64748b; margin-top:6px;">Invoice #: <span id="pdf-inv-number" style="font-weight:700;color:#0f172a;"></span></div>
-                <div style="font-size:12px; color:#64748b; margin-top:3px;">Date: <span id="pdf-inv-date" style="font-weight:700;color:#0f172a;"></span></div>
-                <div style="font-size:12px; color:#64748b; margin-top:3px;">Due: <span id="pdf-inv-due" style="font-weight:700;color:#0f172a;"></span></div>
-            </div>
-        </div>
-        <!-- Divider -->
-        <div style="height:3px; background:linear-gradient(90deg,#004aad,#00b87c); border-radius:2px; margin-bottom:32px;"></div>
-        <!-- Bill To -->
-        <div style="margin-bottom:32px;">
-            <div style="font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px;">Bill To</div>
-            <div id="pdf-client-name" style="font-size:16px; font-weight:800; color:#0f172a;"></div>
-            <div id="pdf-client-email" style="font-size:12px; color:#64748b; margin-top:3px;"></div>
-            <div id="pdf-client-phone" style="font-size:12px; color:#64748b; margin-top:2px;"></div>
-        </div>
-        <!-- Line items table -->
-        <table style="width:100%; border-collapse:collapse; margin-bottom:32px;">
-            <thead>
-                <tr style="background:#f1f5f9;">
-                    <th style="padding:10px 14px; text-align:left; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:1px;">Description</th>
-                    <th style="padding:10px 14px; text-align:right; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:1px;">Amount</th>
-                </tr>
-            </thead>
-            <tbody id="pdf-line-items">
-                <!-- Populated by JS -->
-            </tbody>
-        </table>
-        <!-- Totals -->
-        <div style="display:flex; justify-content:flex-end; margin-bottom:40px;">
-            <div style="min-width:220px;">
-                <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #e2e8f0;">
-                    <span style="font-size:12px; color:#64748b; font-weight:600;">Subtotal</span>
-                    <span id="pdf-subtotal" style="font-size:12px; font-weight:700; color:#0f172a;"></span>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #e2e8f0;">
-                    <span style="font-size:12px; color:#64748b; font-weight:600;">VAT (15%)</span>
-                    <span id="pdf-vat" style="font-size:12px; font-weight:700; color:#0f172a;"></span>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:10px 0; background:#004aad; border-radius:8px; padding:10px 12px; margin-top:4px;">
-                    <span style="font-size:13px; color:#fff; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Total</span>
-                    <span id="pdf-total" style="font-size:16px; font-weight:900; color:#fff;"></span>
-                </div>
-            </div>
-        </div>
-        <!-- Status badge -->
-        <div id="pdf-status-badge" style="text-align:center; margin-bottom:32px;">
-            <span style="display:inline-block; padding:6px 20px; border-radius:999px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:1px;"></span>
-        </div>
-        <!-- Footer -->
-        <div style="border-top:2px solid #e2e8f0; padding-top:20px; text-align:center; font-size:10px; color:#94a3b8; line-height:1.7;">
-            Thank you for choosing FrostFlow Refrigeration &amp; Air-Conditioning.<br>
-            For payment queries contact: <strong>sales@frostflowrefridgerations.co.za</strong> · <strong>+27 73 816 0885</strong><br>
-            <em>3-month minimum plan commitment. Prices VAT inclusive unless stated otherwise.</em>
-        </div>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════════
      JAVASCRIPT
 ══════════════════════════════════════════════════════ -->
 <script>
@@ -529,6 +778,7 @@
             currentProfile = await res.json();
             populateDashboard(currentProfile);
             await loadAppliances();
+            populateSettingsTab(currentProfile);
         } catch(e) {
             document.getElementById('loading-overlay').innerHTML =
                 '<div class="text-center p-8"><p class="text-white font-bold text-lg mb-4">⚠ Server Unreachable</p>' +
@@ -602,9 +852,8 @@
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         document.getElementById('tab-' + tab).classList.add('active');
-        // Find matching button by text content
         document.querySelectorAll('.tab-btn').forEach(b => {
-            if (b.getAttribute('onclick') === `switchTab('${tab}')`) b.classList.add('active');
+            if (b.getAttribute('onclick') === "switchTab('" + tab + "')") b.classList.add('active');
         });
     };
 
@@ -626,7 +875,7 @@
                         <span class="text-xs font-bold text-slate-400">${visit.date ? new Date(visit.date).toLocaleDateString('en-ZA') : ''}</span>
                     </div>
                     ${visit.notes ? `<p class="text-xs text-slate-600 mt-1 font-medium">${visit.notes}</p>` : ''}
-                    ${visit.amount ? `<button onclick='downloadInvoice(${JSON.stringify(visit)})' class="mt-2 inline-flex items-center gap-1 text-xs font-bold text-brand-blue hover:underline">
+                    ${visit.amount ? `<button onclick='openInvoicePDF(${JSON.stringify(visit)})' class="mt-2 inline-flex items-center gap-1 text-xs font-bold text-brand-blue hover:underline">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         Download Invoice
                     </button>` : ''}
@@ -638,58 +887,45 @@
     // ── Billing / Invoices ─────────────────────────────────────────────────
     function renderInvoices(history, meta) {
         const el = document.getElementById('invoice-list');
-        // Generate demo monthly invoices + actual service history invoices
-        const invoices = [];
-        if (meta && currentProfile) {
-            const joined = new Date(currentProfile.createdAt);
-            const now = new Date();
-            let d = new Date(joined);
-            d.setDate(1);
-            while (d <= now && invoices.length < 6) {
-                invoices.push({
-                    id: 'INV-' + d.getFullYear() + ('0'+(d.getMonth()+1)).slice(-2),
-                    description: meta.label + ' — Monthly Fee',
-                    amount: meta.priceNum,
-                    date: new Date(d).toISOString(),
-                    status: d < now ? 'Paid' : 'Due'
-                });
-                d.setMonth(d.getMonth() + 1);
-            }
-        }
-        history.forEach(v => {
-            if (v.amount) invoices.push({
-                id: 'SRV-' + (v.id || Math.random().toString(36).slice(2,8).toUpperCase()),
+        // Only show real service history invoices — no mock data
+        const invoices = history
+            .filter(v => v.amount)
+            .map(v => ({
+                id:          'SRV-' + (v.id || v.date || '').replace(/\W/g,'').slice(-8).toUpperCase(),
                 description: v.type || 'Service Visit',
-                amount: v.amount,
-                date: v.date,
-                status: v.paid ? 'Paid' : 'Pending'
-            });
-        });
+                amount:      parseFloat(v.amount) || 0,
+                date:        v.date || null,
+                notes:       v.notes || '',
+                status:      v.paid ? 'Paid' : 'Pending',
+                technician:  v.technician || ''
+            }));
 
         if (!invoices.length) {
-            el.innerHTML = '<p class="text-sm text-slate-400 py-6 text-center">No invoices yet.</p>';
+            el.innerHTML = '<div class="text-center py-12 text-slate-400"><svg class="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg><p class="text-sm font-bold">No invoices yet</p><p class="text-xs mt-1">Invoices will appear here after your first service visit.</p></div>';
+            document.getElementById('outstanding-amount').textContent = 'R0.00';
+            document.getElementById('pay-btn').disabled = true;
             return;
         }
 
-        // Calculate outstanding
         const outstanding = invoices.filter(i => i.status !== 'Paid').reduce((s, i) => s + i.amount, 0);
         document.getElementById('outstanding-amount').textContent = 'R' + outstanding.toFixed(2);
         document.getElementById('pay-btn').disabled = outstanding === 0;
 
         el.innerHTML = invoices.map(inv => {
             const paid = inv.status === 'Paid';
+            const safeInv = JSON.stringify(inv).replace(/'/g, '&#39;');
             return `<div class="flex items-center justify-between gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <div class="flex-1">
+                <div class="flex-1 min-w-0">
                     <p class="font-black text-slate-900 text-sm">${inv.id}</p>
-                    <p class="text-xs text-slate-500 mt-0.5">${inv.description}</p>
-                    <p class="text-xs text-slate-400 mt-0.5">${inv.date ? new Date(inv.date).toLocaleDateString('en-ZA', {day:'numeric',month:'short',year:'numeric'}) : ''}</p>
+                    <p class="text-xs text-slate-600 mt-0.5 font-medium truncate">${inv.description}</p>
+                    <p class="text-xs text-slate-400 mt-0.5">${inv.date ? new Date(inv.date).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}) : '—'}</p>
                 </div>
                 <div class="flex flex-col items-end gap-2 shrink-0">
                     <span class="font-black text-slate-900 text-sm">R${inv.amount.toFixed(2)}</span>
-                    <span class="text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full ${paid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">${inv.status}</span>
-                    <button onclick='downloadInvoice(${JSON.stringify({...inv, type: inv.description, date: inv.date, notes: "", amount: inv.amount})})' class="text-xs font-bold text-brand-blue hover:underline flex items-center gap-1">
+                    <span class="text-[10px] font-black uppercase tracking-wide px-2.5 py-0.5 rounded-full ${paid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">${inv.status}</span>
+                    <button onclick="openInvoicePDF('${safeInv}')" class="text-xs font-bold text-brand-blue hover:underline flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                        PDF
+                        Download PDF
                     </button>
                 </div>
             </div>`;
@@ -910,55 +1146,17 @@
         }
     };
 
-    // ── Invoice PDF Download ───────────────────────────────────────────────
-    window.downloadInvoice = function(visit) {
+    // ── Invoice PDF — opens invoice-print.html in new tab ─────────────────
+    window.openInvoicePDF = function(visitData) {
         if (!currentProfile) return;
-        const p = currentProfile;
-        const meta = PLAN_META[p.plan] || {};
-        const amount     = parseFloat(visit.amount) || 0;
-        const vat        = amount * 0.15;
-        const subtotal   = amount - vat; // treat amount as VAT-inclusive
-        const invId      = visit.id || ('INV-' + Date.now());
-        const invDate    = visit.date ? new Date(visit.date).toLocaleDateString('en-ZA') : new Date().toLocaleDateString('en-ZA');
-        const dueDate    = visit.date ? new Date(new Date(visit.date).getTime() + 7*86400000).toLocaleDateString('en-ZA') : invDate;
-
-        // Populate template
-        document.getElementById('pdf-inv-number').textContent   = invId;
-        document.getElementById('pdf-inv-date').textContent     = invDate;
-        document.getElementById('pdf-inv-due').textContent      = dueDate;
-        document.getElementById('pdf-client-name').textContent  = ((p.firstName||'') + ' ' + (p.lastName||'')).trim();
-        document.getElementById('pdf-client-email').textContent = p.email || '';
-        document.getElementById('pdf-client-phone').textContent = p.phone || '';
-        document.getElementById('pdf-subtotal').textContent     = 'R' + subtotal.toFixed(2);
-        document.getElementById('pdf-vat').textContent          = 'R' + vat.toFixed(2);
-        document.getElementById('pdf-total').textContent        = 'R' + amount.toFixed(2);
-
-        // Line items
-        document.getElementById('pdf-line-items').innerHTML = `
-            <tr>
-                <td style="padding:10px 14px; font-size:12px; color:#0f172a; font-weight:600; border-bottom:1px solid #f1f5f9;">${visit.type || visit.description || 'Service'}</td>
-                <td style="padding:10px 14px; text-align:right; font-size:12px; color:#0f172a; font-weight:600; border-bottom:1px solid #f1f5f9;">R${subtotal.toFixed(2)}</td>
-            </tr>
-            <tr>
-                <td style="padding:10px 14px; font-size:12px; color:#64748b; border-bottom:1px solid #f1f5f9;">VAT (15%)</td>
-                <td style="padding:10px 14px; text-align:right; font-size:12px; color:#64748b; border-bottom:1px solid #f1f5f9;">R${vat.toFixed(2)}</td>
-            </tr>`;
-
-        // Status badge
-        const badge = document.querySelector('#pdf-status-badge span');
-        const paid  = visit.status === 'Paid' || visit.paid;
-        badge.textContent         = paid ? 'PAID' : 'OUTSTANDING';
-        badge.style.background    = paid ? '#dcfce7' : '#fef9c3';
-        badge.style.color         = paid ? '#166534' : '#854d0e';
-
-        // Generate PDF
-        html2pdf().set({
-            margin: 0,
-            filename: 'FrostFlow-' + invId + '.pdf',
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        }).from(document.getElementById('invoice-template')).save();
+        const payload = Object.assign({}, visitData, {
+            clientName:  ((currentProfile.firstName||'') + ' ' + (currentProfile.lastName||'')).trim(),
+            clientEmail: currentProfile.email  || '',
+            clientPhone: currentProfile.phone  || '',
+            plan:        currentProfile.plan   || ''
+        });
+        sessionStorage.setItem('frostflow_invoice', JSON.stringify(payload));
+        window.open('invoice-print.html', '_blank');
     };
 
     // ── Yoco Payment ───────────────────────────────────────────────────────
@@ -1015,6 +1213,151 @@
         el.className = 'text-xs font-bold rounded-lg px-3 py-2 ' +
             (type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200');
     }
+
+    // ── Settings Tab ───────────────────────────────────────────────────────
+    function populateSettingsTab(p) {
+        const s = p.settings || {};
+        const addr = s.serviceAddress || {};
+        const ec   = s.emergencyContact || {};
+        const bill = s.billing || {};
+        const comm = s.communication || {};
+        const notif = s.notifications || {};
+        const PLAN_META = { domestic:{label:'Domestic Fridge Cover'}, aircon:{label:'Air Conditioning Cover'}, commercial:{label:'Commercial Unit Cover'} };
+
+        // Service address
+        if (addr.street)   document.getElementById('set-street').value   = addr.street;
+        if (addr.suburb)   document.getElementById('set-suburb').value   = addr.suburb;
+        if (addr.city)     document.getElementById('set-city').value     = addr.city;
+        if (addr.postal)   document.getElementById('set-postal').value   = addr.postal;
+        if (addr.province) document.getElementById('set-province').value = addr.province;
+        if (addr.access)   document.getElementById('set-access').value   = addr.access;
+
+        // Property details
+        if (s.propertyType)  document.getElementById('set-property-type').value  = s.propertyType;
+        if (s.businessName)  document.getElementById('set-business-name').value  = s.businessName;
+        if (s.unitCount)     document.getElementById('set-unit-count').value      = s.unitCount;
+
+        // Emergency contact
+        if (ec.name)     document.getElementById('set-ec-name').value     = ec.name;
+        if (ec.relation) document.getElementById('set-ec-relation').value = ec.relation;
+        if (ec.phone)    document.getElementById('set-ec-phone').value    = ec.phone;
+
+        // Billing
+        if (bill.company)        document.getElementById('set-company').value         = bill.company;
+        if (bill.vatNumber)      document.getElementById('set-vat').value              = bill.vatNumber;
+        if (bill.billingAddress) document.getElementById('set-billing-address').value  = bill.billingAddress;
+        if (bill.invoiceEmail)   document.getElementById('set-invoice-email').value    = bill.invoiceEmail;
+
+        // Communication
+        if (comm.preferredMethod) document.getElementById('set-contact-method').value  = comm.preferredMethod;
+        if (comm.serviceWindow)   document.getElementById('set-service-window').value   = comm.serviceWindow;
+        if (comm.techNotes)       document.getElementById('set-tech-notes').value        = comm.techNotes;
+
+        // Notification toggles — default ON for all except promo
+        document.getElementById('notif-invoice').checked  = notif.invoice  !== false;
+        document.getElementById('notif-service').checked  = notif.service  !== false;
+        document.getElementById('notif-faults').checked   = notif.faults   !== false;
+        document.getElementById('notif-dispatch').checked = notif.dispatch  !== false;
+        document.getElementById('notif-renewal').checked  = notif.renewal  !== false;
+        document.getElementById('notif-promo').checked    = notif.promo    === true;
+
+        // Plan info panel
+        const meta = PLAN_META[p.plan];
+        document.getElementById('set-info-plan').textContent = meta ? meta.label : (p.plan || 'None');
+        const joinDate = new Date(p.createdAt);
+        document.getElementById('set-info-started').textContent = joinDate.toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' });
+        // Next renewal = same day of month, next month from today
+        const renewal = new Date(); renewal.setDate(joinDate.getDate()); renewal.setMonth(renewal.getMonth() + 1);
+        document.getElementById('set-info-renewal').textContent = renewal.toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' });
+        // Next service = 1 year from account creation (annual service)
+        const nextService = new Date(joinDate); nextService.setFullYear(nextService.getFullYear() + 1);
+        document.getElementById('set-info-service').textContent = nextService.toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' });
+
+        // Referral code: first 6 chars of userId uppercased
+        const refCode = 'FF-' + (p.userId || 'XXXXXX').slice(0,6).toUpperCase();
+        document.getElementById('referral-code').textContent = refCode;
+    }
+
+    window.handleSettingsSave = async function() {
+        const btn = document.getElementById('settings-save-btn');
+        const msg = document.getElementById('settings-global-msg');
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="white" stroke-width="4"/><path class="opacity-75" fill="white" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Saving…';
+        msg.className = 'hidden';
+
+        const payload = {
+            settings: {
+                serviceAddress: {
+                    street:   document.getElementById('set-street').value.trim(),
+                    suburb:   document.getElementById('set-suburb').value.trim(),
+                    city:     document.getElementById('set-city').value.trim(),
+                    postal:   document.getElementById('set-postal').value.trim(),
+                    province: document.getElementById('set-province').value,
+                    access:   document.getElementById('set-access').value.trim()
+                },
+                propertyType:  document.getElementById('set-property-type').value,
+                businessName:  document.getElementById('set-business-name').value.trim(),
+                unitCount:     document.getElementById('set-unit-count').value,
+                emergencyContact: {
+                    name:     document.getElementById('set-ec-name').value.trim(),
+                    relation: document.getElementById('set-ec-relation').value,
+                    phone:    document.getElementById('set-ec-phone').value.trim()
+                },
+                billing: {
+                    company:        document.getElementById('set-company').value.trim(),
+                    vatNumber:      document.getElementById('set-vat').value.trim(),
+                    billingAddress: document.getElementById('set-billing-address').value.trim(),
+                    invoiceEmail:   document.getElementById('set-invoice-email').value.trim()
+                },
+                communication: {
+                    preferredMethod: document.getElementById('set-contact-method').value,
+                    serviceWindow:   document.getElementById('set-service-window').value,
+                    techNotes:       document.getElementById('set-tech-notes').value.trim()
+                },
+                notifications: {
+                    invoice:  document.getElementById('notif-invoice').checked,
+                    service:  document.getElementById('notif-service').checked,
+                    faults:   document.getElementById('notif-faults').checked,
+                    dispatch: document.getElementById('notif-dispatch').checked,
+                    renewal:  document.getElementById('notif-renewal').checked,
+                    promo:    document.getElementById('notif-promo').checked
+                }
+            }
+        };
+
+        try {
+            const res = await fetch('/api/client/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                Object.assign(currentProfile, data);
+                msg.textContent = '✅ Settings saved successfully.';
+                msg.className = 'mb-5 text-sm font-bold rounded-xl px-4 py-3 bg-green-50 text-green-700 border border-green-200';
+            } else {
+                msg.textContent = data.error || 'Save failed. Please try again.';
+                msg.className = 'mb-5 text-sm font-bold rounded-xl px-4 py-3 bg-red-50 text-red-700 border border-red-200';
+            }
+        } catch(e) {
+            msg.textContent = 'Network error. Please try again.';
+            msg.className = 'mb-5 text-sm font-bold rounded-xl px-4 py-3 bg-red-50 text-red-700 border border-red-200';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Save All Settings';
+        }
+        setTimeout(() => { msg.className = 'hidden'; }, 5000);
+    };
+
+    window.copyReferralCode = function() {
+        const code = document.getElementById('referral-code').textContent;
+        navigator.clipboard.writeText(code).then(() => {
+            const btn = document.getElementById('copy-ref-btn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = 'Copy Code'; }, 2000);
+        });
+    };
 
     // ── Close modals on backdrop click ─────────────────────────────────────
     ['fault-modal','appliance-modal'].forEach(id => {
