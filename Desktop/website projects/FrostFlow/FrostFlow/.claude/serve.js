@@ -448,6 +448,42 @@ http.createServer((req, res) => {
     return;
   }
 
+  // GET /api/client/settings
+  if (parsed.pathname === '/api/client/settings' && req.method === 'GET') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        jsonRes(res, 200, { settings: profile.settings || {} });
+      } catch(e) { jsonRes(res, 500, { error: 'Could not load settings.' }); }
+    })();
+    return;
+  }
+
+  // PUT /api/client/settings
+  if (parsed.pathname === '/api/client/settings' && req.method === 'PUT') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const body    = await parseBody(req);
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        profile.settings = Object.assign(profile.settings || {}, body.settings || {});
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(session.userId, profile);
+        const { passwordHash, passwordSalt, ...safe } = profile;
+        jsonRes(res, 200, safe);
+      } catch(e) {
+        console.error('[settings]', e.message);
+        jsonRes(res, 500, { error: 'Could not save settings.' });
+      }
+    })();
+    return;
+  }
+
   // POST /api/client/fault-report
   if (parsed.pathname === '/api/client/fault-report' && req.method === 'POST') {
     (async () => {
