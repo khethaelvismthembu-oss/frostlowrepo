@@ -139,6 +139,8 @@ const YOCO_SECRET_KEY     = process.env.YOCO_SECRET_KEY     || '';
 const GOOGLE_CLIENT_ID    = process.env.GOOGLE_CLIENT_ID    || '';
 const GOOGLE_CLIENT_SECRET= process.env.GOOGLE_CLIENT_SECRET|| '';
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || `${(process.env.SITE_URL||'http://localhost:3000')}/auth/google/callback`;
+const CALLMEBOT_PHONE     = process.env.CALLMEBOT_PHONE     || '';  // WhatsApp number with country code e.g. 27738160885
+const CALLMEBOT_APIKEY    = process.env.CALLMEBOT_APIKEY    || '';  // From https://www.callmebot.com/blog/free-api-whatsapp-messages/
 
 // ── Rate limiter & IP security ─────────────────────────────────────────────
 const loginAttempts = {}; // { 'ip': { count, firstAttempt, blockedUntil } }
@@ -184,7 +186,14 @@ function get2FASession(tok) {
 
 // ── File upload directory ─────────────────────────────────────────────────
 const UPLOAD_DIR = path.join(ROOT, 'data', 'uploads');
-if (!useSupabase && !fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+// ── Technicians store (JSON file, admin-managed) ──────────────────────────
+const TECH_FILE = path.join(ROOT, 'data', 'technicians.json');
+let technicians = [];
+function loadTechnicians() { try { if (fs.existsSync(TECH_FILE)) technicians = JSON.parse(fs.readFileSync(TECH_FILE, 'utf8')); } catch(e) { technicians = []; } }
+function saveTechnicians() { try { fs.writeFileSync(TECH_FILE, JSON.stringify(technicians, null, 2), 'utf8'); } catch(e) {} }
+loadTechnicians();
 
 function sendEmail(to, subject, htmlBody) {
   return new Promise((resolve) => {
@@ -199,6 +208,24 @@ function sendEmail(to, subject, htmlBody) {
     }, r => { let d = ''; r.on('data', c => d += c); r.on('end', () => { console.log('[EMAIL] →', to, 'status', r.statusCode); resolve({ ok: r.statusCode < 300 }); }); });
     req.on('error', e => { console.error('[EMAIL] Error:', e.message); resolve({ ok: false }); });
     req.write(payload); req.end();
+  });
+}
+
+// ── WhatsApp notifications via CallMeBot (zero npm — pure https) ─────────────
+function sendWhatsApp(message) {
+  if (!CALLMEBOT_PHONE || !CALLMEBOT_APIKEY) {
+    console.log('[WHATSAPP] Not configured — skipping:', message.slice(0, 60));
+    return Promise.resolve({ ok: false, reason: 'not_configured' });
+  }
+  return new Promise((resolve) => {
+    const params = new URLSearchParams({ phone: CALLMEBOT_PHONE, text: message, apikey: CALLMEBOT_APIKEY });
+    const url = 'https://api.callmebot.com/whatsapp.php?' + params.toString();
+    const req = https.get(url, (r) => {
+      let d = ''; r.on('data', c => d += c);
+      r.on('end', () => { console.log('[WHATSAPP] sent, status:', r.statusCode); resolve({ ok: r.statusCode < 400 }); });
+    });
+    req.on('error', (e) => { console.error('[WHATSAPP] Error:', e.message); resolve({ ok: false }); });
+    req.setTimeout(10000, () => { req.destroy(); resolve({ ok: false }); });
   });
 }
 
@@ -532,6 +559,79 @@ function makePlanActivationAdminHtml(profile, plan) {
   </div></body></html>`;
 }
 
+// ── Monthly statement email ────────────────────────────────────────────────
+function makeMonthlyStatementHtml(firstName, monthLabel, visits, totalAmount) {
+  const rows = visits.map(v =>
+    `<tr>
+      <td style="padding:12px 0;font-size:13px;color:#334155;border-bottom:1px solid #f1f5f9;">${v.type || 'Service'}</td>
+      <td style="padding:12px 0;font-size:13px;color:#64748b;border-bottom:1px solid #f1f5f9;">${v.date ? new Date(v.date).toLocaleDateString('en-ZA', {day:'numeric',month:'short'}) : '—'}</td>
+      <td style="padding:12px 0;font-size:13px;font-weight:700;color:${v.paid?'#166534':'#92400e'};text-align:right;border-bottom:1px solid #f1f5f9;">R${parseFloat(v.amount||0).toFixed(2)}</td>
+    </tr>`).join('');
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#004aad,#00337a);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:-0.5px;">❄ FrostFlow</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Monthly Statement</div>
+    </div>
+    <div style="padding:36px;">
+      <h1 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 6px;">${monthLabel} Statement</h1>
+      <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 28px;">Hi ${firstName}, here's a summary of your FrostFlow activity for ${monthLabel}.</p>
+      ${rows ? `<table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        <thead><tr>
+          <th style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;padding:0 0 10px;text-align:left;">Description</th>
+          <th style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;padding:0 0 10px;text-align:left;">Date</th>
+          <th style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;padding:0 0 10px;text-align:right;">Amount</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:24px;">
+        <div style="background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;padding:16px 24px;text-align:right;">
+          <p style="margin:0;font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Total This Month</p>
+          <p style="margin:4px 0 0;font-size:22px;font-weight:900;color:#0f172a;">R${parseFloat(totalAmount||0).toFixed(2)}</p>
+        </div>
+      </div>` : `<p style="color:#64748b;font-size:14px;background:#f8fafc;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">No service visits recorded this month.</p>`}
+      <div style="text-align:center;">
+        <a href="${SITE_URL}/dashboard.html" style="display:inline-block;background:#004aad;color:#fff;font-weight:800;font-size:13px;text-decoration:none;padding:12px 32px;border-radius:50px;text-transform:uppercase;letter-spacing:0.5px;">View My Dashboard</a>
+      </div>
+    </div>
+    <div style="background:#f8fafc;padding:18px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="color:#94a3b8;font-size:10px;margin:0;">FrostFlow · Blackheath, Cape Town · +27 73 816 0885 · frostflowrefridgerations.co.za</p>
+    </div>
+  </div></body></html>`;
+}
+
+// ── Service report email (admin sends after completing a visit) ────────────
+function makeServiceReportHtml(firstName, visit, techName) {
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#00b87c,#009565);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:-0.5px;">❄ FrostFlow</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.75);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Service Report</div>
+    </div>
+    <div style="padding:36px;">
+      <h1 style="font-size:21px;font-weight:800;color:#0f172a;margin:0 0 10px;">Service Complete ✓</h1>
+      <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 20px;">Hi ${firstName}, your service visit has been completed. Here's your report:</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin:0 0 24px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:6px 0;font-size:12px;color:#94a3b8;font-weight:700;width:40%;">Service Type</td><td style="padding:6px 0;font-size:13px;color:#0f172a;font-weight:700;">${visit.type||'Service Visit'}</td></tr>
+          <tr><td style="padding:6px 0;font-size:12px;color:#94a3b8;font-weight:700;">Date</td><td style="padding:6px 0;font-size:13px;color:#0f172a;">${visit.date ? new Date(visit.date).toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'}) : 'N/A'}</td></tr>
+          <tr><td style="padding:6px 0;font-size:12px;color:#94a3b8;font-weight:700;">Technician</td><td style="padding:6px 0;font-size:13px;color:#0f172a;">${techName || visit.technician || 'FrostFlow Team'}</td></tr>
+          ${visit.notes ? `<tr><td style="padding:6px 0;font-size:12px;color:#94a3b8;font-weight:700;vertical-align:top;">Notes</td><td style="padding:6px 0;font-size:13px;color:#475569;line-height:1.5;">${visit.notes}</td></tr>` : ''}
+          ${visit.amount ? `<tr><td style="padding:6px 0;font-size:12px;color:#94a3b8;font-weight:700;">Amount</td><td style="padding:6px 0;font-size:16px;font-weight:900;color:#0f172a;">R${parseFloat(visit.amount).toFixed(2)}</td></tr>` : ''}
+          <tr><td style="padding:6px 0;font-size:12px;color:#94a3b8;font-weight:700;">Ref</td><td style="padding:6px 0;font-size:12px;color:#64748b;font-family:monospace;">${visit.id||'—'}</td></tr>
+        </table>
+      </div>
+      <p style="color:#475569;font-size:13px;line-height:1.6;margin:0 0 20px;">We value your feedback! Please take a moment to rate your service experience in your client portal.</p>
+      <div style="text-align:center;">
+        <a href="${SITE_URL}/dashboard.html" style="display:inline-block;background:#00b87c;color:#fff;font-weight:800;font-size:13px;text-decoration:none;padding:12px 32px;border-radius:50px;text-transform:uppercase;letter-spacing:0.5px;">Rate My Service</a>
+      </div>
+    </div>
+    <div style="background:#f8fafc;padding:18px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="color:#94a3b8;font-size:10px;margin:0;">FrostFlow · +27 73 816 0885 · frostflowrefridgerations.co.za</p>
+    </div>
+  </div></body></html>`;
+}
+
 // ── Supabase PostgREST helper (uses Node built-in https — zero npm dependencies) ──
 function supaFetch(table, method, body, query, prefer) {
   return new Promise((resolve, reject) => {
@@ -713,6 +813,47 @@ async function runServiceReminders() {
 // Run once at startup (after 60s for DB to be ready), then every 24h
 setTimeout(runServiceReminders, 60000);
 setInterval(runServiceReminders, 24 * 60 * 60 * 1000);
+
+// ── Monthly statement cron (runs on 1st of each month) ───────────────────────
+async function runMonthlyStatements() {
+  if (!RESEND_API_KEY) return;
+  const now = new Date();
+  const thisMonth = now.getMonth();
+  const thisYear  = now.getFullYear();
+  // Month label for the PREVIOUS month (what we're summarising)
+  const prevDate  = new Date(thisYear, thisMonth - 1, 1);
+  const monthLabel = prevDate.toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+  try {
+    let clients = [];
+    if (useSupabase) {
+      const { rows } = await supaFetch('clients', 'GET', null, 'status=eq.active&email_verified=eq.true&plan=not.is.null&select=*');
+      clients = rows.map(fromRow);
+    } else {
+      for (const uid of Object.values(emailIndex)) {
+        const p = await readProfile(uid);
+        if (p && p.status === 'active' && p.emailVerified && p.plan) clients.push(p);
+      }
+    }
+    for (const profile of clients) {
+      const prevStart = new Date(thisYear, thisMonth - 1, 1).getTime();
+      const prevEnd   = new Date(thisYear, thisMonth, 1).getTime();
+      // Filter service history for previous month
+      const monthVisits = (profile.serviceHistory || []).filter(v => {
+        const t = v.date ? new Date(v.date).getTime() : (v.loggedAt ? new Date(v.loggedAt).getTime() : 0);
+        return t >= prevStart && t < prevEnd;
+      });
+      const total = monthVisits.reduce((s, v) => s + (parseFloat(v.amount) || 0), 0);
+      await sendEmail(profile.email, `FrostFlow Monthly Statement — ${monthLabel}`,
+        makeMonthlyStatementHtml(profile.firstName, monthLabel, monthVisits, total));
+      console.log('[STATEMENT] Sent monthly statement to', profile.email);
+    }
+  } catch(e) { console.error('[STATEMENT cron]', e.message); }
+}
+// Check daily — send on 1st of month at ~8 AM
+setInterval(() => {
+  const d = new Date();
+  if (d.getDate() === 1 && d.getHours() === 8) runMonthlyStatements();
+}, 60 * 60 * 1000); // check hourly
 
 http.createServer((req, res) => {
   const parsed = new URL(req.url, `http://${req.headers.host}`);
@@ -1011,7 +1152,7 @@ http.createServer((req, res) => {
       const session = getSession(req);
       if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
       try {
-        const { name, model, serialNo, location } = await parseBody(req);
+        const { name, model, serialNo, location, warrantyExpiry } = await parseBody(req);
         if (!name) return jsonRes(res, 400, { error: 'Appliance name is required.' });
         const profile = await readProfile(session.userId);
         if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
@@ -1022,6 +1163,7 @@ http.createServer((req, res) => {
           model: (model || '').trim(),
           serialNo: (serialNo || '').trim(),
           location: (location || '').trim(),
+          warrantyExpiry: warrantyExpiry || null,
           addedAt: new Date().toISOString()
         };
         profile.appliances.push(appliance);
@@ -1098,7 +1240,7 @@ http.createServer((req, res) => {
       const session = getSession(req);
       if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
       try {
-        const { description, applianceId, urgency } = await parseBody(req);
+        const { description, applianceId, urgency, photoUrl } = await parseBody(req);
         if (!description) return jsonRes(res, 400, { error: 'Description is required.' });
         const profile = await readProfile(session.userId);
         if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
@@ -1109,6 +1251,7 @@ http.createServer((req, res) => {
           applianceId: applianceId || null,
           urgency: urgency || 'normal',
           status: 'Logged',
+          photoUrl: photoUrl || null,
           loggedAt: new Date().toISOString()
         };
         profile.faultReports.push(report);
@@ -1116,8 +1259,10 @@ http.createServer((req, res) => {
         await writeProfile(session.userId, profile);
         // Send ack email to client
         sendEmail(profile.email, 'FrostFlow fault report received', makeFaultAckHtml(profile.firstName, report.id, report.urgency)).catch(e => console.error('[fault-report ack email]', e.message));
-        // Notify admin
+        // Notify admin via email + WhatsApp
+        const urgLabel = urgency === 'emergency' ? '🚨 EMERGENCY' : urgency === 'high' ? '⚠ HIGH' : 'Normal';
         if (ADMIN_EMAIL) sendEmail(ADMIN_EMAIL, `Fault report from ${profile.firstName}: ${urgency || 'normal'} urgency`, makeServiceBookingAdminHtml(profile, '', `FAULT: ${description}`)).catch(e => console.error('[fault-report admin email]', e.message));
+        sendWhatsApp(`${urgLabel} Fault Report\nClient: ${profile.firstName} ${profile.lastName||''}\nPhone: ${profile.phone||'N/A'}\nDescription: ${description.slice(0,120)}\nRef: ${report.id}`).catch(() => {});
         jsonRes(res, 200, { ok: true, report });
       } catch(e) {
         console.error('[fault-report]', e.message);
@@ -1177,7 +1322,7 @@ http.createServer((req, res) => {
     (async () => {
       if (!getAdminSession(req)) return jsonRes(res, 401, { error: 'Admin authentication required.' });
       try {
-        const { userId, type, technician, date, notes, amount } = await parseBody(req);
+        const { userId, type, technician, date, notes, amount, sendReport } = await parseBody(req);
         if (!userId || !type || !date) return jsonRes(res, 400, { error: 'userId, type and date are required.' });
         const profile = await readProfile(userId);
         if (!profile) return jsonRes(res, 404, { error: 'Client not found.' });
@@ -1196,6 +1341,11 @@ http.createServer((req, res) => {
         profile.settings = Object.assign(profile.settings || {}, { lastServiceAt: date });
         profile.updatedAt = new Date().toISOString();
         await writeProfile(userId, profile);
+        // Optional: email service report to client
+        if (sendReport) {
+          sendEmail(profile.email, `Your FrostFlow service report — ${visit.type}`, makeServiceReportHtml(profile.firstName, visit, technician)).catch(e => console.error('[service-report email]', e.message));
+          sendWhatsApp(`✅ Service Complete\nHi ${profile.firstName}! Your ${visit.type} has been completed by ${technician||'our technician'}. Check your email for the full report. Ref: ${visit.id}`).catch(() => {});
+        }
         jsonRes(res, 200, { ok: true, visit });
       } catch(e) { console.error('[admin/service-visit]', e.message); jsonRes(res, 500, { error: 'Could not log visit.' }); }
     })();
@@ -1676,6 +1826,208 @@ http.createServer((req, res) => {
         console.error('[select-plan]', e.message);
         jsonRes(res, 400, { error: e.message || 'Could not activate plan. Please try again.' });
       }
+    })();
+    return;
+  }
+
+  // ── Client: Update appliance warranty / details ────────────────────────────
+  if (parsed.pathname.startsWith('/api/client/appliances/') && req.method === 'PUT') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const applianceId = parsed.pathname.split('/').pop();
+        const { warrantyExpiry, name, model, location, serialNo } = await parseBody(req);
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        const appliance = (profile.appliances || []).find(a => a.id === applianceId);
+        if (!appliance) return jsonRes(res, 404, { error: 'Appliance not found.' });
+        if (warrantyExpiry !== undefined) appliance.warrantyExpiry = warrantyExpiry || null;
+        if (name)     appliance.name     = name.trim();
+        if (model)    appliance.model    = model.trim();
+        if (location) appliance.location = location.trim();
+        if (serialNo) appliance.serialNo = serialNo.trim();
+        appliance.updatedAt = new Date().toISOString();
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(session.userId, profile);
+        jsonRes(res, 200, { ok: true, appliance });
+      } catch(e) { console.error('[update-appliance]', e.message); jsonRes(res, 500, { error: 'Could not update appliance.' }); }
+    })();
+    return;
+  }
+
+  // ── Client: Rate a service visit ───────────────────────────────────────────
+  if (parsed.pathname === '/api/client/rate-service' && req.method === 'POST') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const { visitId, rating, comment } = await parseBody(req);
+        if (!visitId || !rating) return jsonRes(res, 400, { error: 'visitId and rating required.' });
+        const stars = parseInt(rating, 10);
+        if (stars < 1 || stars > 5) return jsonRes(res, 400, { error: 'Rating must be between 1 and 5.' });
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        const visit = (profile.serviceHistory || []).find(v => v.id === visitId);
+        if (!visit) return jsonRes(res, 404, { error: 'Service visit not found.' });
+        if (visit.rating) return jsonRes(res, 400, { error: 'This visit has already been rated.' });
+        visit.rating = stars;
+        visit.ratingComment = (comment || '').trim().slice(0, 500);
+        visit.ratedAt = new Date().toISOString();
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(session.userId, profile);
+        // WhatsApp admin with rating
+        sendWhatsApp(`⭐ Service Rating\nClient: ${profile.firstName} ${profile.lastName||''}\nVisit: ${visit.type||visit.id}\nRating: ${'★'.repeat(stars)}${'☆'.repeat(5-stars)} (${stars}/5)${comment ? '\nComment: ' + comment.slice(0,80) : ''}`).catch(() => {});
+        jsonRes(res, 200, { ok: true, rating: stars, comment: visit.ratingComment });
+      } catch(e) { console.error('[rate-service]', e.message); jsonRes(res, 500, { error: 'Could not save rating.' }); }
+    })();
+    return;
+  }
+
+  // ── Client: Get referral code ──────────────────────────────────────────────
+  if (parsed.pathname === '/api/client/referral' && req.method === 'GET') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        const code = profile.settings && profile.settings.referralCode;
+        if (!code) {
+          // Generate and save a unique referral code
+          const newCode = 'FF-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+          profile.settings = Object.assign(profile.settings || {}, { referralCode: newCode, referralCount: 0 });
+          profile.updatedAt = new Date().toISOString();
+          await writeProfile(session.userId, profile);
+          return jsonRes(res, 200, { code: newCode, count: 0 });
+        }
+        jsonRes(res, 200, { code, count: profile.settings.referralCount || 0 });
+      } catch(e) { jsonRes(res, 500, { error: 'Could not get referral code.' }); }
+    })();
+    return;
+  }
+
+  // ── Admin: Get monthly statement for a client ──────────────────────────────
+  if (parsed.pathname === '/api/admin/monthly-statement' && req.method === 'POST') {
+    (async () => {
+      if (!getAdminSession(req)) return jsonRes(res, 401, { error: 'Admin authentication required.' });
+      try {
+        const { userId, month, year } = await parseBody(req); // month: 0-indexed
+        if (!userId) return jsonRes(res, 400, { error: 'userId required.' });
+        const profile = await readProfile(userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Client not found.' });
+        const m = parseInt(month, 10) || (new Date().getMonth() - 1);
+        const y = parseInt(year, 10) || new Date().getFullYear();
+        const start = new Date(y, m, 1).getTime();
+        const end   = new Date(y, m + 1, 1).getTime();
+        const visits = (profile.serviceHistory || []).filter(v => {
+          const t = v.date ? new Date(v.date).getTime() : 0;
+          return t >= start && t < end;
+        });
+        const total = visits.reduce((s, v) => s + (parseFloat(v.amount) || 0), 0);
+        const monthLabel = new Date(y, m, 1).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+        await sendEmail(profile.email, `FrostFlow Monthly Statement — ${monthLabel}`,
+          makeMonthlyStatementHtml(profile.firstName, monthLabel, visits, total));
+        jsonRes(res, 200, { ok: true, monthLabel, visitCount: visits.length, total });
+      } catch(e) { console.error('[admin/monthly-statement]', e.message); jsonRes(res, 500, { error: 'Could not send statement.' }); }
+    })();
+    return;
+  }
+
+  // ── Admin: Technician CRUD ─────────────────────────────────────────────────
+  if (parsed.pathname === '/api/admin/technicians' && req.method === 'GET') {
+    if (!getAdminSession(req)) return jsonRes(res, 401, { error: 'Admin authentication required.' });
+    loadTechnicians();
+    jsonRes(res, 200, { technicians });
+    return;
+  }
+
+  if (parsed.pathname === '/api/admin/technicians' && req.method === 'POST') {
+    (async () => {
+      if (!getAdminSession(req)) return jsonRes(res, 401, { error: 'Admin authentication required.' });
+      try {
+        const { name, phone, email, speciality } = await parseBody(req);
+        if (!name) return jsonRes(res, 400, { error: 'Technician name required.' });
+        loadTechnicians();
+        const tech = {
+          id: crypto.randomBytes(8).toString('hex'),
+          name: name.trim(), phone: (phone||'').trim(), email: (email||'').trim().toLowerCase(),
+          speciality: (speciality||'').trim(), active: true, addedAt: new Date().toISOString()
+        };
+        technicians.push(tech);
+        saveTechnicians();
+        jsonRes(res, 200, { ok: true, tech });
+      } catch(e) { console.error('[admin/technicians POST]', e.message); jsonRes(res, 500, { error: 'Could not add technician.' }); }
+    })();
+    return;
+  }
+
+  if (parsed.pathname.startsWith('/api/admin/technicians/') && req.method === 'PUT') {
+    (async () => {
+      if (!getAdminSession(req)) return jsonRes(res, 401, { error: 'Admin authentication required.' });
+      try {
+        const techId = parsed.pathname.split('/').pop();
+        const body = await parseBody(req);
+        loadTechnicians();
+        const tech = technicians.find(t => t.id === techId);
+        if (!tech) return jsonRes(res, 404, { error: 'Technician not found.' });
+        if (body.name)      tech.name      = body.name.trim();
+        if (body.phone)     tech.phone     = body.phone.trim();
+        if (body.email)     tech.email     = body.email.trim().toLowerCase();
+        if (body.speciality !== undefined) tech.speciality = body.speciality.trim();
+        if (body.active !== undefined) tech.active = !!body.active;
+        tech.updatedAt = new Date().toISOString();
+        saveTechnicians();
+        jsonRes(res, 200, { ok: true, tech });
+      } catch(e) { console.error('[admin/technicians PUT]', e.message); jsonRes(res, 500, { error: 'Could not update technician.' }); }
+    })();
+    return;
+  }
+
+  if (parsed.pathname.startsWith('/api/admin/technicians/') && req.method === 'DELETE') {
+    (async () => {
+      if (!getAdminSession(req)) return jsonRes(res, 401, { error: 'Admin authentication required.' });
+      try {
+        const techId = parsed.pathname.split('/').pop();
+        loadTechnicians();
+        const before = technicians.length;
+        technicians = technicians.filter(t => t.id !== techId);
+        if (technicians.length === before) return jsonRes(res, 404, { error: 'Technician not found.' });
+        saveTechnicians();
+        jsonRes(res, 200, { ok: true });
+      } catch(e) { jsonRes(res, 500, { error: 'Could not remove technician.' }); }
+    })();
+    return;
+  }
+
+  // ── Admin: Send service report email ──────────────────────────────────────
+  if (parsed.pathname === '/api/admin/service-report' && req.method === 'POST') {
+    (async () => {
+      if (!getAdminSession(req)) return jsonRes(res, 401, { error: 'Admin authentication required.' });
+      try {
+        const { userId, visitId } = await parseBody(req);
+        if (!userId || !visitId) return jsonRes(res, 400, { error: 'userId and visitId required.' });
+        const profile = await readProfile(userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Client not found.' });
+        const visit = (profile.serviceHistory || []).find(v => v.id === visitId);
+        if (!visit) return jsonRes(res, 404, { error: 'Visit not found.' });
+        await sendEmail(profile.email, `Your FrostFlow service report — ${visit.type}`, makeServiceReportHtml(profile.firstName, visit, visit.technician));
+        jsonRes(res, 200, { ok: true });
+      } catch(e) { console.error('[admin/service-report]', e.message); jsonRes(res, 500, { error: 'Could not send report.' }); }
+    })();
+    return;
+  }
+
+  // ── Admin: Send WhatsApp to client ─────────────────────────────────────────
+  if (parsed.pathname === '/api/admin/send-whatsapp' && req.method === 'POST') {
+    (async () => {
+      if (!getAdminSession(req)) return jsonRes(res, 401, { error: 'Admin authentication required.' });
+      try {
+        const { message } = await parseBody(req);
+        if (!message) return jsonRes(res, 400, { error: 'message required.' });
+        const result = await sendWhatsApp(message);
+        jsonRes(res, 200, { ok: result.ok, reason: result.reason });
+      } catch(e) { jsonRes(res, 500, { error: 'Could not send WhatsApp.' }); }
     })();
     return;
   }

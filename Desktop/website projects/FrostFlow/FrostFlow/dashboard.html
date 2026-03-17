@@ -856,6 +856,11 @@
                 <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Location</label>
                 <input id="ap-location" type="text" class="input-field" placeholder="e.g. Kitchen, Storeroom B">
             </div>
+            <div>
+                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Warranty Expiry Date</label>
+                <input id="ap-warranty" type="date" class="input-field">
+                <p class="text-xs text-slate-400 mt-1 font-medium">Leave blank if not applicable or unknown.</p>
+            </div>
             <div id="ap-msg" class="hidden text-xs font-bold rounded-lg px-3 py-2"></div>
             <div class="flex gap-3">
                 <button type="button" onclick="closeApplianceModal()" class="flex-1 py-3 border-2 border-slate-200 text-slate-600 font-black uppercase tracking-wider text-xs rounded-xl hover:border-slate-400 transition-colors">Cancel</button>
@@ -1047,13 +1052,36 @@
     };
 
     // ── Service History ────────────────────────────────────────────────────
+    function renderStars(rating, visitId) {
+        // Show filled stars if rated; show interactive stars if not rated and visit is a real service (has id starting with SV-)
+        if (rating) {
+            const filled = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+            return `<div class="flex items-center gap-1 mt-2">
+                <span class="text-amber-400 text-sm font-bold tracking-wider">${filled}</span>
+                <span class="text-xs text-slate-400 font-medium">${rating}/5</span>
+            </div>`;
+        }
+        if (visitId && visitId.startsWith('SV-')) {
+            return `<div class="flex items-center gap-1 mt-2" id="rate-wrap-${visitId}">
+                <span class="text-xs text-slate-400 font-medium mr-1">Rate:</span>
+                ${[1,2,3,4,5].map(s => `<button onclick="handleRateVisit('${visitId}',${s})" class="text-slate-300 hover:text-amber-400 transition-colors text-lg leading-none" title="${s} star${s!==1?'s':''}">★</button>`).join('')}
+            </div>`;
+        }
+        return '';
+    }
+
     function renderServiceHistory(history) {
         const el = document.getElementById('service-history-list');
         if (!history.length) return; // keep empty state
-        el.innerHTML = '<div class="space-y-3">' + history.map(visit => `
+        // Show real service visits (SV- prefix) at top, payment entries at bottom
+        const sorted = [...history].sort((a, b) => new Date(b.date||b.loggedAt||0) - new Date(a.date||a.loggedAt||0));
+        el.innerHTML = '<div class="space-y-3">' + sorted.map(visit => `
             <div class="flex gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <div class="w-10 h-10 bg-brand-blue/10 rounded-xl flex items-center justify-center shrink-0">
-                    <svg class="w-5 h-5 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <div class="w-10 h-10 ${visit.id && visit.id.startsWith('PAY-') ? 'bg-green-50' : 'bg-brand-blue/10'} rounded-xl flex items-center justify-center shrink-0">
+                    ${visit.id && visit.id.startsWith('PAY-')
+                        ? `<svg class="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>`
+                        : `<svg class="w-5 h-5 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`
+                    }
                 </div>
                 <div class="flex-1">
                     <div class="flex items-start justify-between gap-2 flex-wrap">
@@ -1061,9 +1089,14 @@
                             <p class="font-black text-slate-900 text-sm">${visit.type || 'Service Visit'}</p>
                             <p class="text-xs text-slate-500 mt-0.5">${visit.technician ? 'Technician: ' + visit.technician : ''}</p>
                         </div>
-                        <span class="text-xs font-bold text-slate-400">${visit.date ? new Date(visit.date).toLocaleDateString('en-ZA') : ''}</span>
+                        <div class="flex flex-col items-end gap-1">
+                            <span class="text-xs font-bold text-slate-400">${visit.date ? new Date(visit.date).toLocaleDateString('en-ZA') : ''}</span>
+                            ${visit.amount ? `<span class="text-xs font-black ${visit.paid ? 'text-green-600' : 'text-amber-600'}">R${parseFloat(visit.amount).toFixed(2)} ${visit.paid ? '✓ Paid' : '⏳ Pending'}</span>` : ''}
+                        </div>
                     </div>
                     ${visit.notes ? `<p class="text-xs text-slate-600 mt-1 font-medium">${visit.notes}</p>` : ''}
+                    ${visit.ratingComment ? `<p class="text-xs text-slate-500 italic mt-1">"${visit.ratingComment}"</p>` : ''}
+                    ${renderStars(visit.rating, visit.id)}
                     ${visit.amount ? `<button onclick='openInvoicePDF(${JSON.stringify(visit)})' class="mt-2 inline-flex items-center gap-1 text-xs font-bold text-brand-blue hover:underline">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         Download Invoice
@@ -1072,6 +1105,24 @@
             </div>`
         ).join('') + '</div>';
     }
+
+    // ── Rate service visit ──────────────────────────────────────────────────
+    window.handleRateVisit = async function(visitId, stars) {
+        // Optionally ask for a comment
+        const comment = prompt(`Rate this service ${stars}/5 stars.\nOptional: add a comment (or leave blank and click OK):`) || '';
+        if (comment === null) return; // user pressed Cancel
+        try {
+            const res = await fetch('/api/client/rate-service', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ visitId, rating: stars, comment })
+            });
+            const data = await res.json();
+            if (!res.ok) { alert(data.error || 'Could not save rating.'); return; }
+            // Re-fetch and re-render
+            const meRes = await fetch('/api/auth/me');
+            if (meRes.ok) { currentProfile = await meRes.json(); renderServiceHistory(currentProfile.serviceHistory || []); }
+        } catch(e) { alert('Network error. Please try again.'); }
+    };
 
     // ── Billing / Invoices ─────────────────────────────────────────────────
     function renderInvoices(history, meta) {
@@ -1143,7 +1194,21 @@
             </div>`;
             return;
         }
-        el.innerHTML = currentAppliances.map(a => `
+        const now = Date.now();
+        el.innerHTML = currentAppliances.map(a => {
+            let warrantyBadge = '';
+            if (a.warrantyExpiry) {
+                const expTs = new Date(a.warrantyExpiry).getTime();
+                const daysLeft = Math.ceil((expTs - now) / 86400000);
+                if (daysLeft < 0) {
+                    warrantyBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-red-700 bg-red-100 px-2.5 py-1 rounded-full">⚠ Warranty Expired</span>`;
+                } else if (daysLeft <= 60) {
+                    warrantyBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">⏳ Warranty expires in ${daysLeft}d</span>`;
+                } else {
+                    warrantyBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">🛡 Warranty: ${new Date(a.warrantyExpiry).toLocaleDateString('en-ZA',{month:'short',year:'numeric'})}</span>`;
+                }
+            }
+            return `
             <div class="card p-5 flex flex-col gap-3">
                 <div class="flex items-start justify-between gap-2">
                     <div class="w-10 h-10 bg-brand-blue/10 rounded-xl flex items-center justify-center shrink-0">
@@ -1162,12 +1227,15 @@
                     ${a.location ? `<p>Location: <span class="font-bold text-slate-700">${a.location}</span></p>` : ''}
                     <p>Added: <span class="font-bold text-slate-700">${new Date(a.addedAt).toLocaleDateString('en-ZA')}</span></p>
                 </div>
-                <span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-brand-teal bg-brand-teal/10 px-2.5 py-1 rounded-full self-start">
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                    Covered
-                </span>
-            </div>`
-        ).join('');
+                <div class="flex flex-wrap gap-2">
+                    <span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-brand-teal bg-brand-teal/10 px-2.5 py-1 rounded-full">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        Covered
+                    </span>
+                    ${warrantyBadge}
+                </div>
+            </div>`;
+        }).join('');
     }
 
     function populateFaultApplianceDropdown() {
@@ -1191,10 +1259,11 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name:     document.getElementById('ap-name').value.trim(),
-                    model:    document.getElementById('ap-model').value.trim(),
-                    serialNo: document.getElementById('ap-serial').value.trim(),
-                    location: document.getElementById('ap-location').value.trim()
+                    name:           document.getElementById('ap-name').value.trim(),
+                    model:          document.getElementById('ap-model').value.trim(),
+                    serialNo:       document.getElementById('ap-serial').value.trim(),
+                    location:       document.getElementById('ap-location').value.trim(),
+                    warrantyExpiry: document.getElementById('ap-warranty').value || null
                 })
             });
             const data = await res.json();
