@@ -135,6 +135,56 @@ const EMAIL_FROM     = process.env.EMAIL_FROM || 'FrostFlow <noreply@frostflowre
 const SITE_URL       = process.env.SITE_URL  || 'https://www.frostflowrefridgerations.co.za';
 const ADMIN_PASS     = process.env.ADMIN_PASS || '';
 const ADMIN_EMAIL    = process.env.ADMIN_EMAIL || '';
+const YOCO_SECRET_KEY     = process.env.YOCO_SECRET_KEY     || '';
+const GOOGLE_CLIENT_ID    = process.env.GOOGLE_CLIENT_ID    || '';
+const GOOGLE_CLIENT_SECRET= process.env.GOOGLE_CLIENT_SECRET|| '';
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || `${(process.env.SITE_URL||'http://localhost:3000')}/auth/google/callback`;
+
+// ── Rate limiter & IP security ─────────────────────────────────────────────
+const loginAttempts = {}; // { 'ip': { count, firstAttempt, blockedUntil } }
+const MAX_LOGIN_ATTEMPTS = 5;
+const ATTEMPT_WINDOW_MS  = 15 * 60 * 1000;   // 15 min rolling window
+const BLOCK_DURATION_MS  = 60 * 60 * 1000;   // 1 hr block after max attempts
+const BLOCKED_IPS        = new Set((process.env.BLOCKED_IPS || '').split(',').map(s => s.trim()).filter(Boolean));
+
+function getClientIP(req) {
+  return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+}
+function checkRateLimit(ip) {
+  if (BLOCKED_IPS.has(ip)) return { blocked: true, remaining: 999, reason: 'blocked' };
+  const now = Date.now();
+  const e   = loginAttempts[ip];
+  if (!e) return { blocked: false };
+  if (e.blockedUntil && now < e.blockedUntil) {
+    return { blocked: true, remaining: Math.ceil((e.blockedUntil - now) / 60000), reason: 'rate_limit' };
+  }
+  if (now - e.firstAttempt > ATTEMPT_WINDOW_MS) { delete loginAttempts[ip]; return { blocked: false }; }
+  return { blocked: false, attemptsLeft: Math.max(0, MAX_LOGIN_ATTEMPTS - e.count) };
+}
+function recordFailedAttempt(ip) {
+  const now = Date.now();
+  if (!loginAttempts[ip]) loginAttempts[ip] = { count: 0, firstAttempt: now };
+  loginAttempts[ip].count++;
+  if (loginAttempts[ip].count >= MAX_LOGIN_ATTEMPTS) loginAttempts[ip].blockedUntil = now + BLOCK_DURATION_MS;
+}
+function clearLoginAttempts(ip) { delete loginAttempts[ip]; }
+
+// ── 2FA pending store (in-memory, 10-min TTL) ─────────────────────────────
+const pending2FA = {}; // { tempToken: { userId, email, expiresAt } }
+function create2FASession(userId, email) {
+  const tok = crypto.randomBytes(32).toString('hex');
+  pending2FA[tok] = { userId, email, expiresAt: Date.now() + 10 * 60 * 1000 };
+  return tok;
+}
+function get2FASession(tok) {
+  const s = pending2FA[tok];
+  if (!s || s.expiresAt < Date.now()) { if (tok) delete pending2FA[tok]; return null; }
+  return s;
+}
+
+// ── File upload directory ─────────────────────────────────────────────────
+const UPLOAD_DIR = path.join(ROOT, 'data', 'uploads');
+if (!useSupabase && !fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 function sendEmail(to, subject, htmlBody) {
   return new Promise((resolve) => {
@@ -149,6 +199,41 @@ function sendEmail(to, subject, htmlBody) {
     }, r => { let d = ''; r.on('data', c => d += c); r.on('end', () => { console.log('[EMAIL] →', to, 'status', r.statusCode); resolve({ ok: r.statusCode < 300 }); }); });
     req.on('error', e => { console.error('[EMAIL] Error:', e.message); resolve({ ok: false }); });
     req.write(payload); req.end();
+  });
+}
+
+// ── Yoco payment capture (zero npm — pure https) ─────────────────────────────
+function yocoCapture(token, amountInCents) {
+  return new Promise((resolve, reject) => {
+    if (!YOCO_SECRET_KEY) return reject(new Error('Yoco secret key not configured.'));
+    const body = JSON.stringify({ token, amountInCents, currency: 'ZAR' });
+    const req = https.request({
+      hostname: 'online.yoco.com', port: 443, path: '/v1/charges/',
+      method: 'POST',
+      headers: {
+        'X-Auth-Secret-Key': YOCO_SECRET_KEY,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, (resp) => {
+      let data = '';
+      resp.on('data', c => data += c);
+      resp.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          console.log('[YOCO] charge response status:', resp.statusCode, json.id || json.errorCode || json.displayMessage);
+          if (resp.statusCode >= 200 && resp.statusCode < 300 && json.id) {
+            resolve(json);
+          } else {
+            reject(new Error(json.displayMessage || json.errorCode || 'Card declined. Please try a different card.'));
+          }
+        } catch(e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(20000, () => { req.destroy(); reject(new Error('Payment gateway timeout — please try again.')); });
+    req.write(body);
+    req.end();
   });
 }
 
@@ -325,6 +410,128 @@ function makeFaultAckHtml(firstName, reportId, urgency) {
   </div></body></html>`;
 }
 
+// ── Google OAuth helpers ───────────────────────────────────────────────────
+function googlePost(path2, body) {
+  return new Promise((resolve, reject) => {
+    const payload = new URLSearchParams(body).toString();
+    const req = https.request({
+      hostname: 'oauth2.googleapis.com', port: 443, path: path2, method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(payload) }
+    }, r => { let d = ''; r.on('data', c => d += c); r.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); } }); });
+    req.on('error', reject); req.write(payload); req.end();
+  });
+}
+function googleGet(path2, accessToken) {
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'www.googleapis.com', port: 443, path: path2, method: 'GET',
+      headers: { Authorization: 'Bearer ' + accessToken }
+    }, r => { let d = ''; r.on('data', c => d += c); r.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); } }); });
+    req.on('error', reject); req.end();
+  });
+}
+async function exchangeGoogleCode(code) {
+  return googlePost('/token', {
+    code, client_id: GOOGLE_CLIENT_ID, client_secret: GOOGLE_CLIENT_SECRET,
+    redirect_uri: GOOGLE_REDIRECT_URI, grant_type: 'authorization_code'
+  });
+}
+async function getGoogleUserInfo(accessToken) {
+  return googleGet('/oauth2/v2/userinfo', accessToken);
+}
+
+// ── Activity log helper ────────────────────────────────────────────────────
+function appendLoginHistory(profile, req, success) {
+  const entry = { ts: new Date().toISOString(), ip: getClientIP(req), ua: (req.headers['user-agent'] || '').slice(0, 120), success };
+  const s = profile.settings = profile.settings || {};
+  s.loginHistory = [entry, ...(s.loginHistory || [])].slice(0, 50); // keep last 50
+}
+
+// ── Password reset email ───────────────────────────────────────────────────
+function makePasswordResetHtml(firstName, resetUrl) {
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#004aad,#00337a);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;text-transform:uppercase;">❄ FrostFlow</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Password Reset</div>
+    </div>
+    <div style="padding:36px;">
+      <h1 style="font-size:21px;font-weight:800;color:#0f172a;margin:0 0 10px;">Reset your password</h1>
+      <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 28px;">Hi ${firstName}, we received a request to reset your password. Click the button below — this link expires in 1 hour.</p>
+      <div style="text-align:center;margin:32px 0;">
+        <a href="${resetUrl}" style="display:inline-block;background:#004aad;color:#fff;font-weight:800;font-size:14px;text-decoration:none;padding:14px 40px;border-radius:50px;text-transform:uppercase;letter-spacing:0.5px;">Reset My Password</a>
+      </div>
+      <p style="color:#94a3b8;font-size:12px;">If you didn't request this, you can safely ignore this email. Your password won't change.</p>
+    </div>
+    <div style="background:#f8fafc;padding:18px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="color:#94a3b8;font-size:10px;margin:0;">FrostFlow · Blackheath, Cape Town · frostflowrefridgerations.co.za</p>
+    </div>
+  </div></body></html>`;
+}
+
+// ── 2FA OTP email ──────────────────────────────────────────────────────────
+function make2FAEmailHtml(firstName, otp) {
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#004aad,#00337a);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;text-transform:uppercase;">❄ FrostFlow</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Sign-In Code</div>
+    </div>
+    <div style="padding:36px;text-align:center;">
+      <h1 style="font-size:21px;font-weight:800;color:#0f172a;margin:0 0 10px;">Your verification code</h1>
+      <p style="color:#475569;font-size:14px;margin:0 0 28px;">Hi ${firstName}, use this code to complete your sign-in. It expires in 10 minutes.</p>
+      <div style="background:#f0f7ff;border:2px solid #bfdbfe;border-radius:16px;padding:24px;display:inline-block;margin:0 auto 24px;">
+        <span style="font-size:42px;font-weight:900;letter-spacing:12px;color:#004aad;">${otp}</span>
+      </div>
+      <p style="color:#94a3b8;font-size:12px;">Never share this code. FrostFlow will never ask for it by phone.</p>
+    </div>
+    <div style="background:#f8fafc;padding:18px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="color:#94a3b8;font-size:10px;margin:0;">FrostFlow · Blackheath, Cape Town</p>
+    </div>
+  </div></body></html>`;
+}
+
+function makePlanActivationClientHtml(firstName, plan, amountRand) {
+  const planNames = { domestic: 'Domestic Fridge Cover', aircon: 'Air Conditioning Cover', commercial: 'Commercial Unit Cover' };
+  const planName = planNames[plan] || plan;
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#004aad,#00b87c);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:-0.5px;">❄ FrostFlow</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Plan Activated</div>
+    </div>
+    <div style="padding:36px;">
+      <h1 style="font-size:21px;font-weight:800;color:#0f172a;margin:0 0 10px;">Welcome aboard, ${firstName}! 🎉</h1>
+      <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 20px;">Your <strong>${planName}</strong> has been activated. You're now covered and our team is ready to assist you.</p>
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:20px;margin:0 0 24px;">
+        <p style="margin:0 0 6px;font-size:13px;color:#166534;font-weight:700;">✓ Plan: ${planName}</p>
+        <p style="margin:0;font-size:13px;color:#166534;font-weight:700;">✓ First month payment: R${Number(amountRand).toFixed(2)} — Received</p>
+      </div>
+      <p style="color:#475569;font-size:13px;">Log in to your client portal to register appliances, book services, or report faults.</p>
+    </div>
+    <div style="background:#f8fafc;padding:18px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="color:#94a3b8;font-size:10px;margin:0;">FrostFlow · Blackheath, Cape Town · frostflowrefridgerations.co.za</p>
+    </div>
+  </div></body></html>`;
+}
+
+function makePlanActivationAdminHtml(profile, plan) {
+  const planNames = { domestic: 'Domestic Fridge Cover', aircon: 'Air Conditioning Cover', commercial: 'Commercial Unit Cover' };
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#004aad,#00b87c);padding:24px;text-align:center;">
+      <div style="font-size:18px;font-weight:900;color:#fff;">❄ FrostFlow Admin</div>
+    </div>
+    <div style="padding:28px;">
+      <h2 style="font-size:17px;font-weight:800;color:#0f172a;margin:0 0 12px;">💳 New Plan Activation</h2>
+      <p style="font-size:13px;color:#475569;margin:0 0 6px;"><strong>Client:</strong> ${profile.firstName} ${profile.lastName||''}</p>
+      <p style="font-size:13px;color:#475569;margin:0 0 6px;"><strong>Email:</strong> ${profile.email}</p>
+      <p style="font-size:13px;color:#475569;margin:0 0 6px;"><strong>Phone:</strong> ${profile.phone||'—'}</p>
+      <p style="font-size:13px;color:#475569;margin:0;"><strong>Plan:</strong> ${planNames[plan]||plan}</p>
+    </div>
+  </div></body></html>`;
+}
+
 // ── Supabase PostgREST helper (uses Node built-in https — zero npm dependencies) ──
 function supaFetch(table, method, body, query, prefer) {
   return new Promise((resolve, reject) => {
@@ -389,11 +596,16 @@ function fromRow(r) {
 function hashPassword(password, salt) {
   return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
 }
-function createSession(userId, email) {
+function createSession(userId, email, rememberMe) {
   const token = crypto.randomBytes(48).toString('hex');
-  sessions[token] = { userId, email, expires: Date.now() + 30 * 24 * 60 * 60 * 1000 };
+  const ttl = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  sessions[token] = { userId, email, expires: Date.now() + ttl };
   saveSessions();
   return token;
+}
+function sessionCookieOpts(rememberMe) {
+  const maxAge = rememberMe ? 30 * 24 * 3600 : 24 * 3600;
+  return `HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${isProd ? '; Secure' : ''}`;
 }
 function getSession(req) {
   const cookie = req.headers.cookie || '';
@@ -437,10 +649,11 @@ async function emailExists(email) {
   return !!emailIndex[email];
 }
 
-function parseBody(req) {
+function parseBody(req, maxBytes) {
+  const limit = maxBytes || 50000;
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', chunk => { body += chunk; if (body.length > 50000) { body = ''; req.destroy(); reject(new Error('Too large')); } });
+    req.on('data', chunk => { body += chunk; if (body.length > limit) { body = ''; req.destroy(); reject(new Error('Request too large')); } });
     req.on('end', () => { try { resolve(JSON.parse(body)); } catch(e) { resolve({}); } });
   });
 }
@@ -549,19 +762,58 @@ http.createServer((req, res) => {
   // POST /api/auth/login
   if (parsed.pathname === '/api/auth/login' && req.method === 'POST') {
     (async () => {
+      const ip = getClientIP(req);
       try {
-        const { email, password } = await parseBody(req);
+        // Rate limit check
+        const rl = checkRateLimit(ip);
+        if (rl.blocked) {
+          return jsonRes(res, 429, {
+            error: rl.reason === 'blocked'
+              ? 'Access from your IP is restricted. Contact support.'
+              : `Too many failed attempts. Please try again in ${rl.remaining} minute${rl.remaining !== 1 ? 's' : ''}.`,
+            errorCode: 'RATE_LIMITED', remaining: rl.remaining || 0
+          });
+        }
+        const { email, password, rememberMe } = await parseBody(req);
         if (!email || !password) return jsonRes(res, 400, { error: 'Email and password required.' });
         const norm    = email.trim().toLowerCase();
         const profile = await findUserByEmail(norm);
-        if (!profile || hashPassword(password, profile.passwordSalt) !== profile.passwordHash)
-          return jsonRes(res, 401, { error: 'Invalid email or password.' });
-        // Block login for accounts that haven't verified their email
+
+        // Invalid credentials
+        if (!profile || hashPassword(password, profile.passwordSalt) !== profile.passwordHash) {
+          recordFailedAttempt(ip);
+          const rlAfter = checkRateLimit(ip);
+          const hint = rlAfter.attemptsLeft !== undefined && rlAfter.attemptsLeft <= 2
+            ? ` (${rlAfter.attemptsLeft} attempt${rlAfter.attemptsLeft !== 1 ? 's' : ''} left)` : '';
+          if (profile) { appendLoginHistory(profile, req, false); profile.updatedAt = new Date().toISOString(); await writeProfile(profile.userId, profile); }
+          return jsonRes(res, 401, { error: 'Invalid email or password.' + hint });
+        }
         if (!profile.emailVerified)
-          return jsonRes(res, 403, { error: 'Please verify your email address before signing in. Check your inbox for a verification link.', errorCode: 'EMAIL_NOT_VERIFIED', email: norm });
-        const token = createSession(profile.userId, norm);
+          return jsonRes(res, 403, { error: 'Please verify your email before signing in.', errorCode: 'EMAIL_NOT_VERIFIED', email: norm });
+
+        // 2FA check
+        const twoFaEnabled = profile.settings && profile.settings.twoFaEnabled;
+        if (twoFaEnabled) {
+          // Generate 6-digit OTP and email it
+          const otp = String(Math.floor(100000 + Math.random() * 900000));
+          profile.settings.twoFaOtp = { code: otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString() };
+          profile.updatedAt = new Date().toISOString();
+          await writeProfile(profile.userId, profile);
+          const tempToken = create2FASession(profile.userId, norm);
+          sendEmail(norm, 'Your FrostFlow sign-in code', make2FAEmailHtml(profile.firstName, otp))
+            .catch(e => console.error('[2fa email]', e.message));
+          clearLoginAttempts(ip);
+          return jsonRes(res, 200, { ok: false, requires2FA: true, tempToken, firstName: profile.firstName });
+        }
+
+        // Success — log it and create session
+        clearLoginAttempts(ip);
+        appendLoginHistory(profile, req, true);
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(profile.userId, profile);
+        const token = createSession(profile.userId, norm, rememberMe);
         jsonRes(res, 200, { ok: true, firstName: profile.firstName, email: norm, plan: profile.plan },
-          { 'Set-Cookie': `ff_session=${token}; ${SESSION_COOKIE_OPTS}` });
+          { 'Set-Cookie': `ff_session=${token}; ${sessionCookieOpts(rememberMe)}` });
       } catch(e) {
         console.error('[login]', e.message);
         jsonRes(res, 500, { error: 'Login failed. Please try again.' });
@@ -1047,6 +1299,386 @@ http.createServer((req, res) => {
 
   // Update fault-report endpoint to also send ack email
   // POST /api/client/fault-report (enhanced — send ack email)
+
+  // ── Google OAuth: redirect ─────────────────────────────────────────────────
+  if (parsed.pathname === '/auth/google' && req.method === 'GET') {
+    if (!GOOGLE_CLIENT_ID) return jsonRes(res, 503, { error: 'Google login not configured.' });
+    const params = new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID, redirect_uri: GOOGLE_REDIRECT_URI,
+      response_type: 'code', scope: 'openid email profile', access_type: 'online', prompt: 'select_account'
+    });
+    res.writeHead(302, { Location: 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString() });
+    return res.end();
+  }
+
+  // ── Google OAuth: callback ─────────────────────────────────────────────────
+  if (parsed.pathname === '/auth/google/callback' && req.method === 'GET') {
+    const code = parsed.searchParams.get('code');
+    const fail = (msg) => { res.writeHead(302, { Location: '/signin.html?error=' + encodeURIComponent(msg) }); res.end(); };
+    if (!code) return fail('Google sign-in was cancelled.');
+    (async () => {
+      try {
+        const tokens   = await exchangeGoogleCode(code);
+        if (!tokens.access_token) return fail('Google sign-in failed. Please try again.');
+        const gUser    = await getGoogleUserInfo(tokens.access_token);
+        if (!gUser.email || !gUser.verified_email) return fail('Could not retrieve a verified Google email.');
+        const norm = gUser.email.toLowerCase();
+        let profile    = await findUserByEmail(norm);
+        if (!profile) {
+          // Auto-register via Google
+          const userId = crypto.randomBytes(16).toString('hex');
+          profile = {
+            userId, firstName: gUser.given_name || gUser.name || 'User',
+            lastName: gUser.family_name || '', email: norm, phone: '',
+            plan: '', passwordHash: '', passwordSalt: '',
+            createdAt: new Date().toISOString(), serviceHistory: [],
+            emailVerified: true, emailVerifToken: null, emailVerifExpiry: null,
+            status: 'active',
+            settings: { googleId: gUser.id, profilePicture: gUser.picture || '', loginHistory: [] }
+          };
+          await writeProfile(userId, profile);
+          if (!useSupabase) { emailIndex[norm] = userId; saveEmailIndex(); }
+        } else {
+          // Link Google ID
+          profile.settings = Object.assign(profile.settings || {}, { googleId: gUser.id });
+          if (!profile.settings.profilePicture && gUser.picture) profile.settings.profilePicture = gUser.picture;
+          appendLoginHistory(profile, req, true);
+          profile.emailVerified = true;
+          profile.status        = profile.status === 'pending_verification' ? 'active' : profile.status;
+          profile.updatedAt     = new Date().toISOString();
+          await writeProfile(profile.userId, profile);
+        }
+        const token = createSession(profile.userId, norm, true);
+        res.writeHead(302, {
+          Location: '/dashboard.html',
+          'Set-Cookie': `ff_session=${token}; ${sessionCookieOpts(true)}`
+        });
+        res.end();
+      } catch(e) { console.error('[google/callback]', e.message); fail('Google sign-in failed: ' + e.message); }
+    })();
+    return;
+  }
+
+  // ── 2FA: verify OTP ────────────────────────────────────────────────────────
+  if (parsed.pathname === '/api/auth/verify-2fa' && req.method === 'POST') {
+    (async () => {
+      try {
+        const { tempToken, otp, rememberMe } = await parseBody(req);
+        if (!tempToken || !otp) return jsonRes(res, 400, { error: 'Missing code.' });
+        const session2fa = get2FASession(tempToken);
+        if (!session2fa) return jsonRes(res, 401, { error: 'Code expired or invalid. Please sign in again.' });
+        const profile = await readProfile(session2fa.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Account not found.' });
+        const stored = profile.settings && profile.settings.twoFaOtp;
+        if (!stored || new Date(stored.expiresAt) < new Date())
+          return jsonRes(res, 401, { error: 'Code has expired. Please sign in again.' });
+        if (stored.code !== String(otp).trim())
+          return jsonRes(res, 401, { error: 'Incorrect code. Please check your email.' });
+        // Clear OTP + create full session
+        profile.settings.twoFaOtp = null;
+        appendLoginHistory(profile, req, true);
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(profile.userId, profile);
+        delete pending2FA[tempToken];
+        const token = createSession(profile.userId, session2fa.email, rememberMe);
+        clearLoginAttempts(getClientIP(req));
+        jsonRes(res, 200, { ok: true, firstName: profile.firstName, email: session2fa.email, plan: profile.plan },
+          { 'Set-Cookie': `ff_session=${token}; ${sessionCookieOpts(rememberMe)}` });
+      } catch(e) { console.error('[verify-2fa]', e.message); jsonRes(res, 500, { error: 'Verification failed.' }); }
+    })();
+    return;
+  }
+
+  // ── Password reset: request ────────────────────────────────────────────────
+  if (parsed.pathname === '/api/auth/forgot-password' && req.method === 'POST') {
+    (async () => {
+      try {
+        const { email } = await parseBody(req);
+        if (!email) return jsonRes(res, 400, { error: 'Email required.' });
+        const norm = email.trim().toLowerCase();
+        const profile = await findUserByEmail(norm);
+        // Always return 200 to prevent email enumeration
+        if (profile) {
+          const resetToken  = crypto.randomBytes(32).toString('hex');
+          const resetExpiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+          profile.settings = Object.assign(profile.settings || {}, { resetToken, resetExpiry });
+          profile.updatedAt = new Date().toISOString();
+          await writeProfile(profile.userId, profile);
+          const resetUrl = `${SITE_URL}/reset-password.html?token=${resetToken}`;
+          sendEmail(norm, 'Reset your FrostFlow password', makePasswordResetHtml(profile.firstName, resetUrl))
+            .catch(e => console.error('[forgot-password email]', e.message));
+        }
+        jsonRes(res, 200, { ok: true, message: 'If an account with that email exists, a reset link has been sent.' });
+      } catch(e) { console.error('[forgot-password]', e.message); jsonRes(res, 500, { error: 'Could not process request.' }); }
+    })();
+    return;
+  }
+
+  // ── Password reset: verify token ───────────────────────────────────────────
+  if (parsed.pathname === '/api/auth/check-reset-token' && req.method === 'GET') {
+    (async () => {
+      const token = parsed.searchParams.get('token');
+      if (!token || token.length !== 64) return jsonRes(res, 400, { error: 'Invalid reset link.' });
+      try {
+        let profile = null;
+        if (useSupabase) {
+          // Scan via settings — look for matching resetToken
+          const { rows } = await supaFetch('clients', 'GET', null, 'select=user_id,settings,first_name');
+          for (const r of rows) {
+            const p = fromRow(r);
+            if (p.settings && p.settings.resetToken === token) { profile = p; break; }
+          }
+        } else {
+          for (const uid of Object.values(emailIndex)) {
+            const p = await readProfile(uid);
+            if (p && p.settings && p.settings.resetToken === token) { profile = p; break; }
+          }
+        }
+        if (!profile || !profile.settings.resetToken) return jsonRes(res, 404, { error: 'Reset link is invalid or has already been used.' });
+        if (new Date(profile.settings.resetExpiry) < new Date()) return jsonRes(res, 410, { error: 'Reset link has expired. Please request a new one.', errorCode: 'EXPIRED' });
+        jsonRes(res, 200, { ok: true, firstName: profile.firstName });
+      } catch(e) { console.error('[check-reset-token]', e.message); jsonRes(res, 500, { error: 'Could not verify link.' }); }
+    })();
+    return;
+  }
+
+  // ── Password reset: set new password ──────────────────────────────────────
+  if (parsed.pathname === '/api/auth/reset-password' && req.method === 'POST') {
+    (async () => {
+      try {
+        const { token, newPassword } = await parseBody(req);
+        if (!token || !newPassword || newPassword.length < 8)
+          return jsonRes(res, 400, { error: 'Token and a password of at least 8 characters are required.' });
+        let profile = null;
+        if (useSupabase) {
+          const { rows } = await supaFetch('clients', 'GET', null, 'select=*');
+          for (const r of rows) { const p = fromRow(r); if (p.settings && p.settings.resetToken === token) { profile = p; break; } }
+        } else {
+          for (const uid of Object.values(emailIndex)) { const p = await readProfile(uid); if (p && p.settings && p.settings.resetToken === token) { profile = p; break; } }
+        }
+        if (!profile) return jsonRes(res, 404, { error: 'Reset link is invalid or has already been used.' });
+        if (new Date(profile.settings.resetExpiry) < new Date()) return jsonRes(res, 410, { error: 'Reset link has expired.' });
+        const newSalt = crypto.randomBytes(32).toString('hex');
+        profile.passwordHash    = hashPassword(newPassword, newSalt);
+        profile.passwordSalt    = newSalt;
+        profile.settings.resetToken  = null;
+        profile.settings.resetExpiry = null;
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(profile.userId, profile);
+        jsonRes(res, 200, { ok: true, message: 'Password updated. You can now sign in.' });
+      } catch(e) { console.error('[reset-password]', e.message); jsonRes(res, 500, { error: 'Could not reset password.' }); }
+    })();
+    return;
+  }
+
+  // ── Client: upload avatar (base64 JSON) ────────────────────────────────────
+  if (parsed.pathname === '/api/client/upload-avatar' && req.method === 'POST') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const { data: b64, type } = await parseBody(req, 8 * 1024 * 1024); // 8 MB max
+        const ALLOWED_IMG = ['image/jpeg','image/jpg','image/png','image/webp'];
+        if (!b64 || !ALLOWED_IMG.includes(type)) return jsonRes(res, 400, { error: 'Invalid file. Please upload a JPEG, PNG, or WebP image.' });
+        const raw = Buffer.from(b64, 'base64');
+        if (raw.length > 5 * 1024 * 1024) return jsonRes(res, 400, { error: 'Image too large. Maximum size is 5 MB.' });
+        const ext      = type.split('/')[1].replace('jpeg','jpg');
+        const filename = 'avatar-' + session.userId + '.' + ext;
+        const filepath = path.join(UPLOAD_DIR, filename);
+        fs.writeFileSync(filepath, raw);
+        const avatarUrl = '/uploads/' + filename;
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        profile.settings = Object.assign(profile.settings || {}, { profilePicture: avatarUrl });
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(session.userId, profile);
+        jsonRes(res, 200, { ok: true, avatarUrl });
+      } catch(e) { console.error('[upload-avatar]', e.message); jsonRes(res, 500, { error: 'Upload failed.' }); }
+    })();
+    return;
+  }
+
+  // ── Client: upload file (fault photo / document) ───────────────────────────
+  if (parsed.pathname === '/api/client/upload-file' && req.method === 'POST') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const { data: b64, type, originalName } = await parseBody(req, 8 * 1024 * 1024);
+        const ALLOWED = ['image/jpeg','image/jpg','image/png','image/webp','application/pdf'];
+        if (!b64 || !ALLOWED.includes(type)) return jsonRes(res, 400, { error: 'Invalid file type. Allowed: JPEG, PNG, WebP, PDF.' });
+        const raw = Buffer.from(b64, 'base64');
+        if (raw.length > 5 * 1024 * 1024) return jsonRes(res, 400, { error: 'File too large. Maximum 5 MB.' });
+        const ext      = type === 'application/pdf' ? 'pdf' : type.split('/')[1].replace('jpeg','jpg');
+        const fileId   = crypto.randomBytes(16).toString('hex');
+        const filename = fileId + '.' + ext;
+        const filepath = path.join(UPLOAD_DIR, filename);
+        fs.writeFileSync(filepath, raw);
+        const url = '/uploads/' + filename;
+        console.log('[UPLOAD] saved', filename, 'for', session.userId, '(' + (raw.length/1024).toFixed(1) + ' KB)');
+        jsonRes(res, 200, { ok: true, url, filename, originalName: (originalName || filename).slice(0, 120) });
+      } catch(e) { console.error('[upload-file]', e.message); jsonRes(res, 500, { error: 'Upload failed.' }); }
+    })();
+    return;
+  }
+
+  // ── Client: get activity/login log ─────────────────────────────────────────
+  if (parsed.pathname === '/api/client/activity-log' && req.method === 'GET') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const profile = await readProfile(session.userId);
+        const history = (profile && profile.settings && profile.settings.loginHistory) || [];
+        jsonRes(res, 200, { ok: true, loginHistory: history });
+      } catch(e) { jsonRes(res, 500, { error: 'Could not load activity log.' }); }
+    })();
+    return;
+  }
+
+  // ── Client: toggle 2FA ─────────────────────────────────────────────────────
+  if (parsed.pathname === '/api/client/toggle-2fa' && req.method === 'PUT') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const { enable } = await parseBody(req);
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        profile.settings = Object.assign(profile.settings || {}, { twoFaEnabled: !!enable });
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(session.userId, profile);
+        jsonRes(res, 200, { ok: true, twoFaEnabled: !!enable });
+      } catch(e) { jsonRes(res, 500, { error: 'Could not update 2FA setting.' }); }
+    })();
+    return;
+  }
+
+  // ── Serve uploaded files ───────────────────────────────────────────────────
+  if (parsed.pathname.startsWith('/uploads/') && req.method === 'GET') {
+    const session = getSession(req);
+    if (!session) { res.writeHead(401); return res.end('Unauthorized'); }
+    const fname = path.basename(parsed.pathname);
+    if (!/^[a-f0-9\-]+\.(jpg|jpeg|png|webp|pdf)$/i.test(fname)) { res.writeHead(400); return res.end('Bad request'); }
+    const fpath = path.join(UPLOAD_DIR, fname);
+    if (!fs.existsSync(fpath)) { res.writeHead(404); return res.end('Not found'); }
+    const ext  = path.extname(fname).toLowerCase();
+    const mime = { '.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.pdf':'application/pdf' }[ext] || 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'private, max-age=86400' });
+    fs.createReadStream(fpath).pipe(res);
+    return;
+  }
+
+  // ── Client: Capture Yoco charge ────────────────────────────────────────────
+  // POST /api/client/yoco-charge   body: { token, amountInCents, purpose:'plan_fee'|'invoice' }
+  if (parsed.pathname === '/api/client/yoco-charge' && req.method === 'POST') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const { token, amountInCents, purpose } = await parseBody(req);
+        if (!token || !amountInCents) return jsonRes(res, 400, { error: 'Missing token or amount.' });
+        if (!YOCO_SECRET_KEY) return jsonRes(res, 500, { error: 'Payment processing not configured on server.' });
+
+        // Capture with Yoco
+        const charge = await yocoCapture(token, parseInt(amountInCents, 10));
+
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+
+        const now = new Date().toISOString();
+        const amountRand = parseInt(amountInCents, 10) / 100;
+        const shortRef = charge.id.slice(-8).toUpperCase();
+
+        // Mark all existing unpaid service invoices as paid
+        const history = profile.serviceHistory || [];
+        history.forEach(v => { if (v.amount && !v.paid) v.paid = true; });
+
+        // Record this payment as a history entry
+        history.push({
+          id: 'PAY-' + shortRef,
+          type: purpose === 'plan_fee' ? 'Monthly Plan Fee' : 'Invoice Payment',
+          amount: amountRand,
+          paid: true,
+          date: now,
+          notes: 'Paid via Yoco · Ref: ' + charge.id,
+          technician: ''
+        });
+
+        profile.serviceHistory = history;
+        profile.settings = Object.assign(profile.settings || {}, { lastPaymentAt: now, lastPaymentRef: charge.id });
+        profile.updatedAt = now;
+        await writeProfile(session.userId, profile);
+
+        console.log('[YOCO] charge captured:', charge.id, 'for', profile.email, 'R' + amountRand);
+        const { passwordHash, passwordSalt, ...safe } = profile;
+        jsonRes(res, 200, { ok: true, chargeId: charge.id, receiptRef: shortRef, profile: safe });
+      } catch(e) {
+        console.error('[yoco-charge]', e.message);
+        jsonRes(res, 400, { error: e.message || 'Payment failed. Please try again or use a different card.' });
+      }
+    })();
+    return;
+  }
+
+  // ── Client: Select plan + pay first month ─────────────────────────────────
+  // POST /api/client/select-plan   body: { plan, token, amountInCents }
+  if (parsed.pathname === '/api/client/select-plan' && req.method === 'POST') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const { plan, token, amountInCents } = await parseBody(req);
+        const validPlans = ['domestic', 'aircon', 'commercial'];
+        if (!plan || !validPlans.includes(plan)) return jsonRes(res, 400, { error: 'Invalid plan selection.' });
+        if (!token || !amountInCents) return jsonRes(res, 400, { error: 'Payment token required to activate plan.' });
+        if (!YOCO_SECRET_KEY) return jsonRes(res, 500, { error: 'Payment processing not configured on server.' });
+
+        // Capture first month payment
+        const charge = await yocoCapture(token, parseInt(amountInCents, 10));
+
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+
+        const now = new Date().toISOString();
+        const amountRand = parseInt(amountInCents, 10) / 100;
+        const planLabel = PLAN_LABELS[plan] || plan;
+
+        profile.plan = plan;
+        if (profile.status !== 'Cancellation Pending') profile.status = 'active';
+        profile.settings = Object.assign(profile.settings || {}, {
+          planUpdatedAt: now,
+          lastPaymentAt: now,
+          lastPaymentRef: charge.id
+        });
+        profile.serviceHistory = [...(profile.serviceHistory || []), {
+          id: 'PAY-' + charge.id.slice(-8).toUpperCase(),
+          type: 'Plan Activation — ' + planLabel,
+          amount: amountRand,
+          paid: true,
+          date: now,
+          notes: 'First month payment · Yoco Ref: ' + charge.id,
+          technician: ''
+        }];
+        profile.updatedAt = now;
+        await writeProfile(session.userId, profile);
+
+        // Emails
+        sendEmail(profile.email, 'Welcome to FrostFlow — Plan Activated! 🎉', makePlanActivationClientHtml(profile.firstName, plan, amountRand))
+          .catch(e => console.error('[select-plan client email]', e.message));
+        if (ADMIN_EMAIL) sendEmail(ADMIN_EMAIL, `New plan activation: ${profile.firstName} ${profile.lastName||''} → ${planLabel}`, makePlanActivationAdminHtml(profile, plan))
+          .catch(e => console.error('[select-plan admin email]', e.message));
+
+        console.log('[SELECT-PLAN] activated', plan, 'for', profile.email, 'charge:', charge.id);
+        const { passwordHash, passwordSalt, ...safe } = profile;
+        jsonRes(res, 200, { ok: true, profile: safe });
+      } catch(e) {
+        console.error('[select-plan]', e.message);
+        jsonRes(res, 400, { error: e.message || 'Could not activate plan. Please try again.' });
+      }
+    })();
+    return;
+  }
 
   // ── YouTube metadata proxy ──────────────────────────────────────────────
   if (parsed.pathname === '/api/yt') {

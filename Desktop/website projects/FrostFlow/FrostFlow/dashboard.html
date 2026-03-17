@@ -106,6 +106,27 @@
                     <p id="plan-name" class="text-white font-black text-sm">—</p>
                 </div>
             </div>
+            <!-- Avatar (clickable → Account tab) -->
+            <button onclick="switchTab('account')" title="View Account" class="ml-auto sm:ml-0 bg-white/10 border border-white/20 rounded-full p-0.5 hover:bg-white/20 transition-colors shrink-0">
+                <img id="header-avatar" src="" alt="Avatar" class="w-10 h-10 rounded-full object-cover">
+            </button>
+        </div>
+    </div>
+
+    <!-- No-plan activation banner (hidden when plan is set) -->
+    <div id="no-plan-banner" class="hidden fade-up mb-6 rounded-2xl overflow-hidden">
+        <div class="bg-gradient-to-r from-brand-blue to-brand-teal p-6 text-white">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs font-black uppercase tracking-widest text-white/70 mb-1">Action Required</p>
+                    <h2 class="text-xl font-black mb-1">Activate Your Maintenance Plan</h2>
+                    <p class="text-sm text-white/80 font-medium">Choose a plan below and pay your first month to unlock full coverage.</p>
+                </div>
+                <svg class="w-12 h-12 text-white/20 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            </div>
+        </div>
+        <div class="bg-white border-x border-b border-slate-200 p-4 grid grid-cols-1 sm:grid-cols-3 gap-3" id="no-plan-cards">
+            <!-- Populated by JS -->
         </div>
     </div>
 
@@ -326,6 +347,23 @@
         <div id="tab-account" class="tab-panel p-6">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
+                <!-- Profile Picture -->
+                <div class="mb-6">
+                    <h2 class="text-base font-black text-slate-900 mb-3">Profile Picture</h2>
+                    <div class="flex items-center gap-4">
+                        <img id="avatar-preview" src="" alt="Avatar" class="w-16 h-16 rounded-full object-cover border-2 border-slate-200">
+                        <div>
+                            <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-brand-blue text-white font-black uppercase tracking-wider text-xs rounded-xl hover:bg-brand-dark transition-colors">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                Upload Photo
+                                <input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="handleAvatarChange(this)">
+                            </label>
+                            <p class="text-xs text-slate-400 mt-1 font-medium">JPEG / PNG / WebP · Max 5 MB</p>
+                            <div id="avatar-msg" class="hidden text-xs font-bold rounded px-2 py-1 mt-1"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Update profile details -->
                 <div>
                     <h2 class="text-base font-black text-slate-900 mb-4">Personal Details</h2>
@@ -375,6 +413,22 @@
                         </form>
                     </div>
 
+                    <!-- Two-Factor Authentication -->
+                    <div class="border border-slate-200 rounded-2xl p-5">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h2 class="text-sm font-black text-slate-900 mb-1">Two-Factor Authentication</h2>
+                                <p class="text-xs text-slate-500 font-medium">When enabled, you'll need a code emailed to you on every sign-in.</p>
+                            </div>
+                            <!-- Toggle switch -->
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                                <input id="twofa-toggle" type="checkbox" class="sr-only peer" onchange="handleToggle2FA(this)">
+                                <div class="w-11 h-6 bg-slate-200 peer-focus:ring-2 peer-focus:ring-brand-blue rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-blue"></div>
+                            </label>
+                        </div>
+                        <div id="twofa-msg" class="hidden mt-2 text-xs font-bold rounded px-2 py-1"></div>
+                    </div>
+
                     <!-- Danger Zone -->
                     <div class="border border-red-200 rounded-2xl p-5 bg-red-50">
                         <h2 class="text-xs font-black uppercase tracking-widest text-red-500 mb-1">Danger Zone</h2>
@@ -384,6 +438,17 @@
                         </button>
                         <div id="cancel-msg" class="hidden mt-3 text-xs font-bold rounded-lg px-3 py-2"></div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Activity / Login History -->
+            <div class="mt-8 pt-8 border-t border-slate-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-black text-slate-900">Login History</h2>
+                    <button onclick="loadActivityLog()" class="text-xs font-black text-brand-blue hover:underline uppercase tracking-wide">Refresh</button>
+                </div>
+                <div id="activity-log-list" class="space-y-2">
+                    <p class="text-xs text-slate-400 font-medium">Loading…</p>
                 </div>
             </div>
         </div>
@@ -741,6 +806,19 @@
                 <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Describe the Fault *</label>
                 <textarea id="fault-desc" class="input-field" rows="4" placeholder="e.g. Fridge not cooling, compressor making loud noise since this morning..." required></textarea>
             </div>
+            <!-- Photo/document attachment -->
+            <div>
+                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Attach Photo (optional)</label>
+                <label class="flex items-center gap-3 cursor-pointer border-2 border-dashed border-slate-200 rounded-xl px-4 py-3 hover:border-brand-blue transition-colors">
+                    <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <span id="fault-file-label" class="text-xs text-slate-500 font-medium">Click to attach a photo of the fault (JPEG/PNG, max 5 MB)</span>
+                    <input id="fault-file" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="handleFaultFileChange(this)">
+                </label>
+                <div id="fault-file-preview" class="hidden mt-2">
+                    <img id="fault-file-img" src="" alt="Preview" class="h-24 w-auto rounded-lg border border-slate-200 object-cover">
+                    <button type="button" onclick="clearFaultFile()" class="ml-2 text-xs font-bold text-red-500 hover:underline">Remove</button>
+                </div>
+            </div>
             <div id="fault-msg" class="hidden text-xs font-bold rounded-lg px-3 py-2"></div>
             <div class="flex gap-3">
                 <button type="button" onclick="closeFaultModal()" class="flex-1 py-3 border-2 border-slate-200 text-slate-600 font-black uppercase tracking-wider text-xs rounded-xl hover:border-slate-400 transition-colors">Cancel</button>
@@ -909,11 +987,15 @@
             covEl.innerHTML = '<p class="text-sm text-slate-500">No plan selected. <a href="plans.html" class="text-brand-blue font-black hover:underline">Choose a plan →</a></p>';
         }
 
-        // Profile form
+        // Profile form + avatar
         document.getElementById('pf-firstname').value = p.firstName || '';
         document.getElementById('pf-lastname').value  = p.lastName  || '';
         document.getElementById('pf-phone').value     = p.phone     || '';
         document.getElementById('pf-email').value     = p.email     || '';
+        const pic = p.settings && p.settings.profilePicture;
+        const initials = (p.firstName||'?')[0].toUpperCase();
+        const fallback = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='20' fill='%23e2e8f0'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-size='18' font-family='Arial' fill='%2394a3b8'>${initials}</text></svg>`;
+        document.getElementById('avatar-preview').src = pic || fallback;
 
         // Billing
         if (meta) {
@@ -929,6 +1011,24 @@
         renderPendingBooking(p.settings || {});
         renderPlanCards(p.plan);
 
+        // Avatar
+        const avatarUrl = p.settings && p.settings.profilePicture;
+        const avatarEl  = document.getElementById('header-avatar');
+        if (avatarEl) avatarEl.src = avatarUrl || 'data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 40 40\'><circle cx=\'20\' cy=\'20\' r=\'20\' fill=\'%23e2e8f0\'/><text x=\'50%25\' y=\'55%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'18\' font-family=\'Arial\' fill=\'%2394a3b8\'>' + (p.firstName||'?')[0].toUpperCase() + '</text></svg>';
+
+        // No-plan banner / activation cards
+        const noBanner = document.getElementById('no-plan-banner');
+        if (!p.plan) {
+            noBanner.classList.remove('hidden');
+            renderNoPlanCards();
+        } else {
+            noBanner.classList.add('hidden');
+        }
+
+        // 2FA toggle state
+        const twoFaChk = document.getElementById('twofa-toggle');
+        if (twoFaChk) twoFaChk.checked = !!(p.settings && p.settings.twoFaEnabled);
+
         // Show dashboard
         document.getElementById('loading-overlay').style.display = 'none';
         document.getElementById('dashboard-content').style.display = '';
@@ -942,6 +1042,8 @@
         document.querySelectorAll('.tab-btn').forEach(b => {
             if (b.getAttribute('onclick') === "switchTab('" + tab + "')") b.classList.add('active');
         });
+        // Auto-load activity log when account tab opens
+        if (tab === 'account') loadActivityLog();
     };
 
     // ── Service History ────────────────────────────────────────────────────
@@ -1120,7 +1222,31 @@
 
     // ── Fault modal ────────────────────────────────────────────────────────
     window.openFaultModal  = () => document.getElementById('fault-modal').classList.remove('hidden');
-    window.closeFaultModal = () => { document.getElementById('fault-modal').classList.add('hidden'); document.getElementById('fault-form').reset(); };
+    window.closeFaultModal = () => {
+        document.getElementById('fault-modal').classList.add('hidden');
+        document.getElementById('fault-form').reset();
+        clearFaultFile();
+    };
+    window._faultFileData = null;
+    window.handleFaultFileChange = function(input) {
+        const file = input.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { alert('File too large. Maximum 5 MB.'); input.value = ''; return; }
+        document.getElementById('fault-file-label').textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            window._faultFileData = { data: e.target.result.split(',')[1], type: file.type, originalName: file.name };
+            document.getElementById('fault-file-img').src = e.target.result;
+            document.getElementById('fault-file-preview').classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+    };
+    window.clearFaultFile = function() {
+        window._faultFileData = null;
+        document.getElementById('fault-file').value = '';
+        document.getElementById('fault-file-label').textContent = 'Click to attach a photo of the fault (JPEG/PNG, max 5 MB)';
+        document.getElementById('fault-file-preview').classList.add('hidden');
+    };
 
     window.handleFaultSubmit = async function(e) {
         e.preventDefault();
@@ -1129,18 +1255,29 @@
         btn.disabled = true; btn.textContent = 'Submitting…';
         msg.className = 'hidden';
         try {
+            // Upload photo first if attached
+            let photoUrl = null;
+            if (window._faultFileData) {
+                const upRes = await fetch('/api/client/upload-file', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(window._faultFileData)
+                });
+                if (upRes.ok) { const upData = await upRes.json(); photoUrl = upData.url; }
+            }
             const res = await fetch('/api/client/fault-report', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     applianceId: document.getElementById('fault-appliance').value || null,
                     urgency:     document.getElementById('fault-urgency').value,
-                    description: document.getElementById('fault-desc').value.trim()
+                    description: document.getElementById('fault-desc').value.trim(),
+                    photoUrl
                 })
             });
             const data = await res.json();
             if (!res.ok) { showMsg(msg, data.error || 'Failed.', 'error'); return; }
             showMsg(msg, '✅ Fault logged! We\'ll be in touch shortly. For emergencies call +27 73 816 0885.', 'success');
+            if (data.faultReports) { currentProfile.faultReports = data.faultReports; renderFaultReportsMini(data.faultReports); }
             setTimeout(closeFaultModal, 3500);
         } catch(err) {
             showMsg(msg, 'Network error. Please call us directly.', 'error');
@@ -1148,6 +1285,102 @@
             btn.disabled = false; btn.textContent = 'Submit Fault Report';
         }
     };
+
+    // ── Avatar upload ──────────────────────────────────────────────────────
+    window.handleAvatarChange = async function(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const msg = document.getElementById('avatar-msg');
+        if (file.size > 5 * 1024 * 1024) { showMsg(msg, 'Max 5 MB.', 'error'); msg.classList.remove('hidden'); return; }
+        // Show preview immediately
+        const reader = new FileReader();
+        reader.onload = async function(ev) {
+            const b64 = ev.target.result.split(',')[1];
+            document.getElementById('avatar-preview').src = ev.target.result;
+            document.getElementById('header-avatar').src  = ev.target.result;
+            msg.textContent = 'Uploading…'; msg.className = 'text-xs font-bold rounded px-2 py-1 mt-1 text-brand-blue'; msg.classList.remove('hidden');
+            try {
+                const res = await fetch('/api/client/upload-avatar', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: b64, type: file.type })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showMsg(msg, '✅ Photo updated!', 'success'); msg.classList.remove('hidden');
+                    if (currentProfile) { currentProfile.settings = Object.assign(currentProfile.settings||{}, { profilePicture: data.avatarUrl }); }
+                } else {
+                    showMsg(msg, data.error || 'Upload failed.', 'error'); msg.classList.remove('hidden');
+                }
+            } catch(e) { showMsg(msg, 'Network error.', 'error'); msg.classList.remove('hidden'); }
+            setTimeout(() => msg.classList.add('hidden'), 4000);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    // ── 2FA toggle ─────────────────────────────────────────────────────────
+    window.handleToggle2FA = async function(checkbox) {
+        const msg = document.getElementById('twofa-msg');
+        const enable = checkbox.checked;
+        try {
+            const res  = await fetch('/api/client/toggle-2fa', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enable })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showMsg(msg, enable ? '✅ Two-factor authentication enabled.' : 'Two-factor authentication disabled.', enable ? 'success' : 'success');
+                msg.classList.remove('hidden');
+                if (currentProfile) currentProfile.settings = Object.assign(currentProfile.settings||{}, { twoFaEnabled: enable });
+            } else {
+                showMsg(msg, data.error || 'Could not update 2FA.', 'error'); msg.classList.remove('hidden');
+                checkbox.checked = !enable; // revert
+            }
+        } catch(e) { showMsg(msg, 'Network error.', 'error'); msg.classList.remove('hidden'); checkbox.checked = !enable; }
+        setTimeout(() => msg.classList.add('hidden'), 4000);
+    };
+
+    // ── Activity / Login log ────────────────────────────────────────────────
+    window.loadActivityLog = async function() {
+        const el = document.getElementById('activity-log-list');
+        try {
+            const res  = await fetch('/api/client/activity-log');
+            if (!res.ok) { el.innerHTML = '<p class="text-xs text-red-500 font-medium">Could not load activity log.</p>'; return; }
+            const data = await res.json();
+            const history = data.loginHistory || [];
+            if (!history.length) { el.innerHTML = '<p class="text-xs text-slate-400 font-medium">No login history yet.</p>'; return; }
+            el.innerHTML = history.slice(0, 20).map(function(entry) {
+                const d    = new Date(entry.ts);
+                const time = d.toLocaleString('en-ZA', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+                const ok   = entry.success;
+                return '<div class="flex items-center justify-between gap-3 py-2.5 border-b border-slate-100 last:border-0">' +
+                    '<div>' +
+                        '<p class="text-xs font-bold text-slate-800">' + time + '</p>' +
+                        '<p class="text-[11px] text-slate-400 mt-0.5 font-medium">IP: ' + (entry.ip||'—') + ' · ' + (entry.ua||'Unknown browser').slice(0,60) + '</p>' +
+                    '</div>' +
+                    '<span class="shrink-0 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full ' +
+                        (ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700') + '">' +
+                        (ok ? '✓ Success' : '✗ Failed') + '</span>' +
+                '</div>';
+            }).join('');
+        } catch(e) { el.innerHTML = '<p class="text-xs text-red-500 font-medium">Network error.</p>'; }
+    };
+
+    // ── No-plan activation cards ───────────────────────────────────────────
+    function renderNoPlanCards() {
+        const grid = document.getElementById('no-plan-cards');
+        if (!grid) return;
+        grid.innerHTML = Object.entries(PLAN_META).map(function([key, meta]) {
+            return '<div class="border border-slate-200 rounded-xl p-4 flex flex-col gap-2">' +
+                '<p class="font-black text-slate-900 text-sm">' + meta.label + '</p>' +
+                '<p class="text-lg font-black text-brand-blue">' + meta.price + '</p>' +
+                '<p class="text-xs text-slate-500">SLA: ' + meta.sla + '</p>' +
+                '<button onclick="payAndActivatePlan(\'' + key + '\',' + meta.priceNum + ')" ' +
+                    'class="mt-auto py-2.5 bg-brand-blue text-white font-black uppercase tracking-wider text-xs rounded-xl hover:bg-brand-dark transition-colors">' +
+                    'Select &amp; Pay' +
+                '</button>' +
+            '</div>';
+        }).join('');
+    }
 
     // ── Profile update ─────────────────────────────────────────────────────
     window.handleProfileUpdate = async function(e) {
@@ -1236,7 +1469,10 @@
     // ── Invoice PDF — opens invoice-print.html in new tab ─────────────────
     window.openInvoicePDF = function(visitData) {
         if (!currentProfile) return;
-        const payload = Object.assign({}, visitData, {
+        // Accept both JSON string (from billing tab) and object (from history tab)
+        let data;
+        try { data = typeof visitData === 'string' ? JSON.parse(visitData) : visitData; } catch(e) { data = {}; }
+        const payload = Object.assign({}, data, {
             clientName:  ((currentProfile.firstName||'') + ' ' + (currentProfile.lastName||'')).trim(),
             clientEmail: currentProfile.email  || '',
             clientPhone: currentProfile.phone  || '',
@@ -1247,43 +1483,79 @@
     };
 
     // ── Yoco Payment ───────────────────────────────────────────────────────
+    const YOCO_PUBLIC_KEY = 'pk_test_ed3c54a6gOol69qa7f45';
+
+    function loadYocoSDK(cb) {
+        if (typeof YocoSDK !== 'undefined') { cb(); return; }
+        const script = document.createElement('script');
+        script.src = 'https://js.yoco.com/sdk/v1/yoco-sdk-web.js';
+        script.onload = cb;
+        document.head.appendChild(script);
+    }
+
     window.openYocoPayment = function() {
         const outstanding = parseFloat(
             document.getElementById('outstanding-amount').textContent.replace('R','')
         ) || 0;
         if (outstanding <= 0) { alert('No outstanding balance to pay.'); return; }
-
-        // NOTE: Replace 'pk_test_xxxxxxxx' with your real Yoco public key from dashboard.yoco.com
-        const YOCO_PUBLIC_KEY = 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxx';
-
-        if (typeof YocoSDK === 'undefined') {
-            // Dynamically load Yoco SDK on first use
-            const script = document.createElement('script');
-            script.src = 'https://js.yoco.com/sdk/v1/yoco-sdk-web.js';
-            script.onload = () => launchYoco(YOCO_PUBLIC_KEY, outstanding);
-            document.head.appendChild(script);
-        } else {
-            launchYoco(YOCO_PUBLIC_KEY, outstanding);
-        }
+        loadYocoSDK(() => launchYoco(YOCO_PUBLIC_KEY, outstanding, 'plan_fee'));
     };
 
-    function launchYoco(publicKey, amountRand) {
+    // Called by the no-plan activation flow
+    window.payAndActivatePlan = function(planKey, amountRand) {
+        window._pendingPlanKey = planKey;
+        loadYocoSDK(() => launchYoco(YOCO_PUBLIC_KEY, amountRand, 'plan_activation', function(d) {
+            // Close the no-plan banner and show success
+            const banner = document.getElementById('no-plan-banner');
+            if (banner) banner.style.display = 'none';
+            alert('🎉 Plan activated! Welcome to FrostFlow coverage.');
+        }));
+    };
+
+    function launchYoco(publicKey, amountRand, purpose, onSuccess) {
         const sdk = new YocoSDK({ publicKey });
+        const payBtn = document.getElementById('pay-btn');
         sdk.showPopup({
             amountInCents: Math.round(amountRand * 100),
             currency: 'ZAR',
             name: 'FrostFlow Maintenance Plan',
-            description: 'Monthly plan fee payment',
-            callback: function(result) {
+            description: purpose === 'plan_activation' ? 'Plan activation — first month' : 'Monthly plan fee payment',
+            callback: async function(result) {
                 if (result.error) {
-                    alert('Payment failed: ' + result.error.message);
+                    alert('Payment failed: ' + (result.error.message || 'Card declined.'));
                     return;
                 }
-                // result.id is a charge token — send it to your backend to capture
-                // For now we notify the user and update the UI
-                alert('✅ Payment successful! Reference: ' + result.id + '\n\nThank you — your account will be updated shortly.');
-                document.getElementById('outstanding-amount').textContent = 'R0.00';
-                document.getElementById('pay-btn').disabled = true;
+                // Capture charge on backend
+                const endpoint = purpose === 'plan_activation'
+                    ? '/api/client/select-plan'
+                    : '/api/client/yoco-charge';
+                try {
+                    const body = purpose === 'plan_activation'
+                        ? { plan: window._pendingPlanKey, token: result.id, amountInCents: Math.round(amountRand * 100) }
+                        : { token: result.id, amountInCents: Math.round(amountRand * 100), purpose: 'plan_fee' };
+                    const r = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    const d = await r.json();
+                    if (!r.ok) {
+                        alert('Payment was processed by Yoco (Ref: ' + result.id + ') but could not be recorded.\nPlease contact us with this reference number.\nError: ' + (d.error || 'Unknown'));
+                        return;
+                    }
+                    // Update local state
+                    if (d.profile) {
+                        currentProfile = d.profile;
+                        populateDashboard(currentProfile);
+                        populateSettingsTab(currentProfile);
+                    }
+                    if (payBtn) { payBtn.disabled = true; }
+                    document.getElementById('outstanding-amount').textContent = 'R0.00';
+                    if (typeof onSuccess === 'function') onSuccess(d);
+                    else alert('✅ Payment successful! Ref: ' + (d.receiptRef || result.id) + '\n\nYour account has been updated.');
+                } catch(e) {
+                    alert('Payment processed (Ref: ' + result.id + ') but we could not reach the server.\nPlease contact us with this reference.');
+                }
             }
         });
     }
