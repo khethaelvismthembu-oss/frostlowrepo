@@ -109,12 +109,32 @@ try { if (!useSupabase && fs.existsSync(EMAIL_FILE)) emailIndex = JSON.parse(fs.
 function saveSessions()   { if (!useSupabase) try { fs.writeFileSync(SESS_FILE,  JSON.stringify(sessions),   'utf8'); } catch(e) {} }
 function saveEmailIndex() { if (!useSupabase) try { fs.writeFileSync(EMAIL_FILE, JSON.stringify(emailIndex), 'utf8'); } catch(e) {} }
 
+// ── Admin session store (in-memory, 4-hour expiry) ────────────────────────────
+let adminSessions = {};
+function createAdminSession() {
+  const token = crypto.randomBytes(32).toString('hex');
+  adminSessions[token] = { expires: Date.now() + 4 * 60 * 60 * 1000 };
+  return token;
+}
+function getAdminSession(req) {
+  const cookie = req.headers.cookie || '';
+  const match  = cookie.match(/ff_admin=([a-f0-9]{64})/);
+  if (!match) return null;
+  const s = adminSessions[match[1]];
+  if (!s || s.expires < Date.now()) { if (match) delete adminSessions[match[1]]; return null; }
+  return s;
+}
+const ADMIN_COOKIE_OPTS = `HttpOnly; SameSite=Strict; Path=/; Max-Age=${4*3600}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+const CLEAR_ADMIN_COOKIE = `ff_admin=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+
 // ── Email sending via Resend API (zero npm — pure https) ──────────────────────
 // Get a free key at https://resend.com (100 emails/day free)
 // Add RESEND_API_KEY to Render → Environment Variables
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const EMAIL_FROM     = process.env.EMAIL_FROM || 'FrostFlow <noreply@frostflowrefridgerations.co.za>';
 const SITE_URL       = process.env.SITE_URL  || 'https://www.frostflowrefridgerations.co.za';
+const ADMIN_PASS     = process.env.ADMIN_PASS || '';
+const ADMIN_EMAIL    = process.env.ADMIN_EMAIL || '';
 
 function sendEmail(to, subject, htmlBody) {
   return new Promise((resolve) => {
@@ -170,6 +190,137 @@ function makePasswordResetEmailHtml(firstName, resetUrl) {
     </div>
     <div style="background:#f8fafc;padding:18px;text-align:center;border-top:1px solid #e2e8f0;">
       <p style="color:#94a3b8;font-size:10px;margin:0;">FrostFlow · Blackheath, Cape Town · +27 73 816 0885</p>
+    </div>
+  </div></body></html>`;
+}
+
+function makeServiceBookingClientHtml(firstName, preferredDate, notes) {
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#004aad,#00337a);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:-0.5px;">❄ FrostFlow</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Service Booking Received</div>
+    </div>
+    <div style="padding:36px;">
+      <h1 style="font-size:21px;font-weight:800;color:#0f172a;margin:0 0 10px;">Booking Request Confirmed ✓</h1>
+      <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 20px;">Hi ${firstName}, we've received your service booking request. Our team will contact you within 1 business day to confirm your appointment.</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin:0 0 24px;">
+        <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Booking Details</p>
+        <p style="margin:0 0 6px;font-size:14px;color:#0f172a;"><strong>Preferred Date:</strong> ${preferredDate || 'Flexible'}</p>
+        ${notes ? `<p style="margin:0;font-size:14px;color:#0f172a;"><strong>Notes:</strong> ${notes}</p>` : ''}
+      </div>
+      <p style="color:#475569;font-size:13px;line-height:1.7;margin:0;">Need urgent assistance? Call us on <strong>+27 73 816 0885</strong> or WhatsApp us directly.</p>
+    </div>
+    <div style="background:#f8fafc;padding:18px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="color:#94a3b8;font-size:10px;margin:0;">FrostFlow · Blackheath, Cape Town · +27 73 816 0885 · frostflowrefridgerations.co.za</p>
+    </div>
+  </div></body></html>`;
+}
+
+function makeServiceBookingAdminHtml(profile, preferredDate, notes) {
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;text-transform:uppercase;">❄ FrostFlow Admin</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">New Service Booking</div>
+    </div>
+    <div style="padding:36px;">
+      <h1 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 16px;">New Service Booking Request</h1>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin:0 0 20px;">
+        <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Client Details</p>
+        <p style="margin:0 0 4px;font-size:14px;color:#0f172a;"><strong>Name:</strong> ${profile.firstName} ${profile.lastName || ''}</p>
+        <p style="margin:0 0 4px;font-size:14px;color:#0f172a;"><strong>Email:</strong> ${profile.email}</p>
+        <p style="margin:0 0 4px;font-size:14px;color:#0f172a;"><strong>Phone:</strong> ${profile.phone || 'Not provided'}</p>
+        <p style="margin:0 0 4px;font-size:14px;color:#0f172a;"><strong>Plan:</strong> ${profile.plan || 'None'}</p>
+        <p style="margin:0 0 4px;font-size:14px;color:#0f172a;"><strong>Preferred Date:</strong> ${preferredDate || 'Flexible'}</p>
+        ${notes ? `<p style="margin:0;font-size:14px;color:#0f172a;"><strong>Notes:</strong> ${notes}</p>` : ''}
+      </div>
+      <a href="${SITE_URL}/admin.html" style="display:inline-block;background:#004aad;color:#fff;font-weight:800;font-size:13px;text-decoration:none;padding:12px 28px;border-radius:50px;text-transform:uppercase;">Open Admin Panel</a>
+    </div>
+  </div></body></html>`;
+}
+
+function makePlanUpgradeClientHtml(firstName, oldPlan, newPlan) {
+  const labels = { domestic:'Domestic Fridge Cover', aircon:'Air Conditioning Cover', commercial:'Commercial Unit Cover' };
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#00b87c,#009565);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:-0.5px;">❄ FrostFlow</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.75);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Plan Updated</div>
+    </div>
+    <div style="padding:36px;">
+      <h1 style="font-size:21px;font-weight:800;color:#0f172a;margin:0 0 10px;">Your Plan Has Been Updated ✓</h1>
+      <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 20px;">Hi ${firstName}, your maintenance plan has been successfully updated.</p>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin:0 0 24px;">
+        ${oldPlan ? `<p style="margin:0 0 8px;font-size:13px;color:#64748b;"><s>${labels[oldPlan] || oldPlan}</s></p>` : ''}
+        <p style="margin:0;font-size:16px;font-weight:800;color:#00b87c;">→ ${labels[newPlan] || newPlan}</p>
+      </div>
+      <p style="color:#475569;font-size:13px;">Your new coverage and benefits are active immediately. View your dashboard for details.</p>
+    </div>
+    <div style="background:#f8fafc;padding:18px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="color:#94a3b8;font-size:10px;margin:0;">FrostFlow · Blackheath, Cape Town · +27 73 816 0885</p>
+    </div>
+  </div></body></html>`;
+}
+
+function makePlanUpgradeAdminHtml(profile, oldPlan, newPlan) {
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;">❄ FrostFlow Admin</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Plan Change</div>
+    </div>
+    <div style="padding:36px;">
+      <h1 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 16px;">Client Changed Plan</h1>
+      <p style="font-size:14px;color:#475569;margin:0 0 16px;"><strong>${profile.firstName} ${profile.lastName || ''}</strong> (${profile.email}) changed their plan from <strong>${oldPlan || 'none'}</strong> → <strong>${newPlan}</strong>.</p>
+      <a href="${SITE_URL}/admin.html" style="display:inline-block;background:#004aad;color:#fff;font-weight:800;font-size:13px;text-decoration:none;padding:12px 28px;border-radius:50px;text-transform:uppercase;">Open Admin Panel</a>
+    </div>
+  </div></body></html>`;
+}
+
+function makeServiceReminderHtml(firstName, planLabel, lastServiceDate) {
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#004aad,#00337a);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:-0.5px;">❄ FrostFlow</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Service Reminder</div>
+    </div>
+    <div style="padding:36px;">
+      <h1 style="font-size:21px;font-weight:800;color:#0f172a;margin:0 0 10px;">Your Service Is Due 🔧</h1>
+      <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 20px;">Hi ${firstName}, it's time for your scheduled maintenance service as part of your <strong>${planLabel}</strong> plan. Regular servicing keeps your unit running efficiently and prevents costly breakdowns.</p>
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:20px;margin:0 0 28px;">
+        <p style="margin:0;font-size:13px;color:#1e40af;"><strong>Last service:</strong> ${lastServiceDate || 'Not on record'}</p>
+      </div>
+      <div style="text-align:center;margin:0 0 20px;">
+        <a href="${SITE_URL}/dashboard.html" style="display:inline-block;background:#004aad;color:#fff;font-weight:800;font-size:14px;text-decoration:none;padding:14px 40px;border-radius:50px;text-transform:uppercase;letter-spacing:0.5px;">Book Your Service</a>
+      </div>
+      <p style="color:#94a3b8;font-size:12px;text-align:center;">Or call us on <strong>+27 73 816 0885</strong></p>
+    </div>
+    <div style="background:#f8fafc;padding:18px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="color:#94a3b8;font-size:10px;margin:0;">FrostFlow · Blackheath, Cape Town · frostflowrefridgerations.co.za</p>
+    </div>
+  </div></body></html>`;
+}
+
+function makeFaultAckHtml(firstName, reportId, urgency) {
+  const urgLabel = urgency === 'emergency' ? '🚨 Emergency' : urgency === 'high' ? '⚠ High' : 'Normal';
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:-0.5px;">❄ FrostFlow</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.75);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Fault Report Logged</div>
+    </div>
+    <div style="padding:36px;">
+      <h1 style="font-size:21px;font-weight:800;color:#0f172a;margin:0 0 10px;">Fault Report Received ✓</h1>
+      <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 20px;">Hi ${firstName}, we've logged your fault report. Our team has been notified and will respond based on your plan's SLA.</p>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:20px;margin:0 0 24px;">
+        <p style="margin:0 0 6px;font-size:13px;color:#64748b;"><strong>Reference:</strong> ${reportId}</p>
+        <p style="margin:0;font-size:13px;color:#64748b;"><strong>Urgency:</strong> ${urgLabel}</p>
+      </div>
+      <p style="color:#475569;font-size:13px;">For emergencies, please also call us directly on <strong>+27 73 816 0885</strong>.</p>
+    </div>
+    <div style="background:#f8fafc;padding:18px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="color:#94a3b8;font-size:10px;margin:0;">FrostFlow · Blackheath, Cape Town · frostflowrefridgerations.co.za</p>
     </div>
   </div></body></html>`;
 }
@@ -302,6 +453,53 @@ const SESSION_COOKIE_OPTS = `HttpOnly; SameSite=Strict; Path=/; Max-Age=${30*24*
 const CLEAR_COOKIE = `ff_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isProd ? '; Secure' : ''}`;
 
 console.log(useSupabase ? '[DB] Using Supabase persistent storage' : '[DB] Using local file storage (dev mode)');
+
+// ── Plan service intervals (days between scheduled services) ─────────────────
+const PLAN_SERVICE_INTERVAL_DAYS = { domestic: 365, aircon: 180, commercial: 90 };
+const PLAN_LABELS = { domestic: 'Domestic Fridge Cover', aircon: 'Air Conditioning Cover', commercial: 'Commercial Unit Cover' };
+
+// ── Daily service reminder cron ──────────────────────────────────────────────
+async function runServiceReminders() {
+  if (!RESEND_API_KEY) return;
+  try {
+    let clients = [];
+    if (useSupabase) {
+      const { rows } = await supaFetch('clients', 'GET', null, 'status=eq.active&email_verified=eq.true&select=*');
+      clients = rows.map(fromRow);
+    } else {
+      for (const uid of Object.values(emailIndex)) {
+        const p = await readProfile(uid);
+        if (p && p.status === 'active' && p.emailVerified) clients.push(p);
+      }
+    }
+    const now = Date.now();
+    for (const profile of clients) {
+      const intervalDays = PLAN_SERVICE_INTERVAL_DAYS[profile.plan];
+      if (!intervalDays) continue;
+      // Find last service date
+      const history = profile.serviceHistory || [];
+      const lastEntry = history.sort((a, b) => new Date(b.date||b.loggedAt||0) - new Date(a.date||a.loggedAt||0))[0];
+      const lastServiceAt = lastEntry ? new Date(lastEntry.date || lastEntry.loggedAt).getTime() : new Date(profile.createdAt).getTime();
+      const dueSince = now - lastServiceAt;
+      const intervalMs = intervalDays * 24 * 60 * 60 * 1000;
+      if (dueSince < intervalMs) continue; // not due yet
+      // Check we haven't recently sent a reminder (7-day cooldown)
+      const lastReminder = profile.settings && profile.settings.lastReminderSentAt ? new Date(profile.settings.lastReminderSentAt).getTime() : 0;
+      if ((now - lastReminder) < 7 * 24 * 60 * 60 * 1000) continue;
+      // Send reminder
+      const lastServiceDateStr = lastEntry ? (lastEntry.date || new Date(lastEntry.loggedAt).toLocaleDateString('en-ZA')) : 'Not on record';
+      await sendEmail(profile.email, 'Your FrostFlow service is due', makeServiceReminderHtml(profile.firstName, PLAN_LABELS[profile.plan] || profile.plan, lastServiceDateStr));
+      // Update lastReminderSentAt
+      profile.settings = Object.assign(profile.settings || {}, { lastReminderSentAt: new Date().toISOString() });
+      profile.updatedAt = new Date().toISOString();
+      await writeProfile(profile.userId, profile);
+      console.log('[REMINDER] Sent to', profile.email);
+    }
+  } catch(e) { console.error('[REMINDER cron]', e.message); }
+}
+// Run once at startup (after 60s for DB to be ready), then every 24h
+setTimeout(runServiceReminders, 60000);
+setInterval(runServiceReminders, 24 * 60 * 60 * 1000);
 
 http.createServer((req, res) => {
   const parsed = new URL(req.url, `http://${req.headers.host}`);
@@ -664,6 +862,10 @@ http.createServer((req, res) => {
         profile.faultReports.push(report);
         profile.updatedAt = new Date().toISOString();
         await writeProfile(session.userId, profile);
+        // Send ack email to client
+        sendEmail(profile.email, 'FrostFlow fault report received', makeFaultAckHtml(profile.firstName, report.id, report.urgency)).catch(e => console.error('[fault-report ack email]', e.message));
+        // Notify admin
+        if (ADMIN_EMAIL) sendEmail(ADMIN_EMAIL, `Fault report from ${profile.firstName}: ${urgency || 'normal'} urgency`, makeServiceBookingAdminHtml(profile, '', `FAULT: ${description}`)).catch(e => console.error('[fault-report admin email]', e.message));
         jsonRes(res, 200, { ok: true, report });
       } catch(e) {
         console.error('[fault-report]', e.message);
@@ -672,6 +874,179 @@ http.createServer((req, res) => {
     })();
     return;
   }
+
+  // ── Admin: Login ─────────────────────────────────────────────────────────
+  if (parsed.pathname === '/api/admin/login' && req.method === 'POST') {
+    (async () => {
+      try {
+        const { password } = await parseBody(req);
+        if (!ADMIN_PASS) return jsonRes(res, 503, { error: 'Admin panel not configured. Set ADMIN_PASS environment variable.' });
+        if (!password || password !== ADMIN_PASS) return jsonRes(res, 401, { error: 'Incorrect password.' });
+        const token = createAdminSession();
+        jsonRes(res, 200, { ok: true }, { 'Set-Cookie': `ff_admin=${token}; ${ADMIN_COOKIE_OPTS}` });
+      } catch(e) { jsonRes(res, 500, { error: 'Login failed.' }); }
+    })();
+    return;
+  }
+
+  // ── Admin: Logout ─────────────────────────────────────────────────────────
+  if (parsed.pathname === '/api/admin/logout' && req.method === 'POST') {
+    const cookie = req.headers.cookie || '';
+    const match  = cookie.match(/ff_admin=([a-f0-9]{64})/);
+    if (match && adminSessions[match[1]]) delete adminSessions[match[1]];
+    jsonRes(res, 200, { ok: true }, { 'Set-Cookie': CLEAR_ADMIN_COOKIE });
+    return;
+  }
+
+  // ── Admin: Get all clients ─────────────────────────────────────────────────
+  if (parsed.pathname === '/api/admin/clients' && req.method === 'GET') {
+    (async () => {
+      if (!getAdminSession(req)) return jsonRes(res, 401, { error: 'Admin authentication required.' });
+      try {
+        let clients = [];
+        if (useSupabase) {
+          const { rows } = await supaFetch('clients', 'GET', null, 'select=*&order=created_at.desc');
+          clients = rows.map(r => { const p = fromRow(r); const { passwordHash, passwordSalt, emailVerifToken, ...safe } = p; return safe; });
+        } else {
+          for (const uid of Object.values(emailIndex)) {
+            const p = await readProfile(uid);
+            if (p) { const { passwordHash, passwordSalt, emailVerifToken, ...safe } = p; clients.push(safe); }
+          }
+          clients.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        }
+        jsonRes(res, 200, { clients });
+      } catch(e) { console.error('[admin/clients]', e.message); jsonRes(res, 500, { error: 'Could not load clients.' }); }
+    })();
+    return;
+  }
+
+  // ── Admin: Log a service visit ─────────────────────────────────────────────
+  if (parsed.pathname === '/api/admin/service-visit' && req.method === 'POST') {
+    (async () => {
+      if (!getAdminSession(req)) return jsonRes(res, 401, { error: 'Admin authentication required.' });
+      try {
+        const { userId, type, technician, date, notes, amount } = await parseBody(req);
+        if (!userId || !type || !date) return jsonRes(res, 400, { error: 'userId, type and date are required.' });
+        const profile = await readProfile(userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Client not found.' });
+        const visit = {
+          id: 'SV-' + crypto.randomBytes(6).toString('hex').toUpperCase(),
+          type: type.trim(),
+          technician: (technician || '').trim(),
+          date: date,
+          notes: (notes || '').trim(),
+          amount: parseFloat(amount) || 0,
+          status: 'Paid',
+          loggedAt: new Date().toISOString()
+        };
+        if (!profile.serviceHistory) profile.serviceHistory = [];
+        profile.serviceHistory.push(visit);
+        profile.settings = Object.assign(profile.settings || {}, { lastServiceAt: date });
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(userId, profile);
+        jsonRes(res, 200, { ok: true, visit });
+      } catch(e) { console.error('[admin/service-visit]', e.message); jsonRes(res, 500, { error: 'Could not log visit.' }); }
+    })();
+    return;
+  }
+
+  // ── Admin: Update fault report status ──────────────────────────────────────
+  if (parsed.pathname === '/api/admin/fault-report' && req.method === 'PUT') {
+    (async () => {
+      if (!getAdminSession(req)) return jsonRes(res, 401, { error: 'Admin authentication required.' });
+      try {
+        const { userId, reportId, status } = await parseBody(req);
+        if (!userId || !reportId || !status) return jsonRes(res, 400, { error: 'userId, reportId and status are required.' });
+        const validStatuses = ['Logged', 'In Progress', 'Resolved', 'Closed'];
+        if (!validStatuses.includes(status)) return jsonRes(res, 400, { error: 'Invalid status value.' });
+        const profile = await readProfile(userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Client not found.' });
+        const report = (profile.faultReports || []).find(r => r.id === reportId);
+        if (!report) return jsonRes(res, 404, { error: 'Fault report not found.' });
+        report.status = status;
+        report.updatedAt = new Date().toISOString();
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(userId, profile);
+        jsonRes(res, 200, { ok: true, report });
+      } catch(e) { console.error('[admin/fault-report]', e.message); jsonRes(res, 500, { error: 'Could not update fault report.' }); }
+    })();
+    return;
+  }
+
+  // ── Admin: Send reminder email manually ────────────────────────────────────
+  if (parsed.pathname === '/api/admin/send-reminder' && req.method === 'POST') {
+    (async () => {
+      if (!getAdminSession(req)) return jsonRes(res, 401, { error: 'Admin authentication required.' });
+      try {
+        const { userId } = await parseBody(req);
+        if (!userId) return jsonRes(res, 400, { error: 'userId required.' });
+        const profile = await readProfile(userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Client not found.' });
+        const history = (profile.serviceHistory || []).sort((a, b) => new Date(b.date||b.loggedAt||0) - new Date(a.date||a.loggedAt||0));
+        const last = history[0];
+        const lastDateStr = last ? (last.date || new Date(last.loggedAt).toLocaleDateString('en-ZA')) : 'Not on record';
+        await sendEmail(profile.email, 'Your FrostFlow service is due', makeServiceReminderHtml(profile.firstName, PLAN_LABELS[profile.plan] || profile.plan, lastDateStr));
+        profile.settings = Object.assign(profile.settings || {}, { lastReminderSentAt: new Date().toISOString() });
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(userId, profile);
+        jsonRes(res, 200, { ok: true });
+      } catch(e) { console.error('[admin/send-reminder]', e.message); jsonRes(res, 500, { error: 'Could not send reminder.' }); }
+    })();
+    return;
+  }
+
+  // ── Client: Upgrade / change plan ─────────────────────────────────────────
+  if (parsed.pathname === '/api/client/upgrade-plan' && req.method === 'POST') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const { newPlan } = await parseBody(req);
+        const validPlans = ['domestic', 'aircon', 'commercial'];
+        if (!newPlan || !validPlans.includes(newPlan)) return jsonRes(res, 400, { error: 'Invalid plan selection.' });
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        const oldPlan = profile.plan;
+        if (oldPlan === newPlan) return jsonRes(res, 400, { error: 'You are already on this plan.' });
+        profile.plan = newPlan;
+        profile.settings = Object.assign(profile.settings || {}, { planUpdatedAt: new Date().toISOString() });
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(session.userId, profile);
+        // Email client + admin
+        sendEmail(profile.email, 'Your FrostFlow plan has been updated', makePlanUpgradeClientHtml(profile.firstName, oldPlan, newPlan)).catch(e => console.error('[upgrade-plan client email]', e.message));
+        if (ADMIN_EMAIL) sendEmail(ADMIN_EMAIL, `Plan change: ${profile.firstName} → ${newPlan}`, makePlanUpgradeAdminHtml(profile, oldPlan, newPlan)).catch(e => console.error('[upgrade-plan admin email]', e.message));
+        const { passwordHash, passwordSalt, ...safe } = profile;
+        jsonRes(res, 200, { ok: true, profile: safe });
+      } catch(e) { console.error('[upgrade-plan]', e.message); jsonRes(res, 500, { error: 'Could not update plan.' }); }
+    })();
+    return;
+  }
+
+  // ── Client: Book a service visit ───────────────────────────────────────────
+  if (parsed.pathname === '/api/client/book-service' && req.method === 'POST') {
+    (async () => {
+      const session = getSession(req);
+      if (!session) return jsonRes(res, 401, { error: 'Not authenticated.' });
+      try {
+        const { preferredDate, notes } = await parseBody(req);
+        const profile = await readProfile(session.userId);
+        if (!profile) return jsonRes(res, 404, { error: 'Profile not found.' });
+        const booking = { preferredDate: preferredDate || '', notes: (notes || '').trim(), requestedAt: new Date().toISOString(), status: 'Pending' };
+        profile.settings = Object.assign(profile.settings || {}, { pendingBooking: booking });
+        profile.updatedAt = new Date().toISOString();
+        await writeProfile(session.userId, profile);
+        // Email client confirmation
+        sendEmail(profile.email, 'FrostFlow service booking received', makeServiceBookingClientHtml(profile.firstName, preferredDate, notes)).catch(e => console.error('[book-service client email]', e.message));
+        // Email admin notification
+        if (ADMIN_EMAIL) sendEmail(ADMIN_EMAIL, `New booking: ${profile.firstName} ${profile.lastName || ''}`, makeServiceBookingAdminHtml(profile, preferredDate, notes)).catch(e => console.error('[book-service admin email]', e.message));
+        jsonRes(res, 200, { ok: true, booking });
+      } catch(e) { console.error('[book-service]', e.message); jsonRes(res, 500, { error: 'Could not submit booking.' }); }
+    })();
+    return;
+  }
+
+  // Update fault-report endpoint to also send ack email
+  // POST /api/client/fault-report (enhanced — send ack email)
 
   // ── YouTube metadata proxy ──────────────────────────────────────────────
   if (parsed.pathname === '/api/yt') {

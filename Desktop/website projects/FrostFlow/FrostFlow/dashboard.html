@@ -171,6 +171,20 @@
                         </p>
                     </div>
 
+                    <!-- Book a Service -->
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <button onclick="openBookingModal()" class="flex-1 flex items-center justify-center gap-3 bg-brand-teal hover:bg-brand-tealDark text-white font-black uppercase tracking-widest text-sm px-6 py-4 rounded-2xl transition-colors shadow-lg">
+                            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            Book a Service Visit
+                        </button>
+                    </div>
+
+                    <!-- Open Fault Reports -->
+                    <div id="fault-reports-card" class="hidden">
+                        <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Recent Fault Reports</h3>
+                        <div id="fault-reports-list" class="space-y-2"></div>
+                    </div>
+
                     <!-- Coverage -->
                     <div>
                         <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Your Plan Coverage</h3>
@@ -213,11 +227,11 @@
                             <div><p class="font-black text-slate-900 text-sm">WhatsApp Us</p><p class="text-xs text-slate-500">Quick message support</p></div>
                         </a>
                     </div>
-                    <!-- Upgrade -->
+                    <!-- Upgrade / Change Plan -->
                     <div class="card p-5 border-brand-teal/30 bg-gradient-to-br from-brand-teal/5 to-white">
-                        <p class="text-xs font-black uppercase tracking-widest text-brand-teal mb-1">Upgrade Plan</p>
-                        <p class="text-xs text-slate-500 font-medium mb-3">Need more coverage or faster response?</p>
-                        <a href="plans.html" class="block w-full py-2.5 bg-brand-teal text-white text-center font-black uppercase tracking-wider text-xs rounded-xl hover:bg-brand-tealDark transition-colors">Compare Plans</a>
+                        <p class="text-xs font-black uppercase tracking-widest text-brand-teal mb-1">Change Plan</p>
+                        <p class="text-xs text-slate-500 font-medium mb-3">Switch your coverage anytime — effective immediately.</p>
+                        <button onclick="switchTab('account'); setTimeout(()=>document.getElementById('plan-upgrade-section').scrollIntoView({behavior:'smooth'}),100)" class="block w-full py-2.5 bg-brand-teal text-white text-center font-black uppercase tracking-wider text-xs rounded-xl hover:bg-brand-tealDark transition-colors">Change My Plan</button>
                     </div>
                 </div>
             </div>
@@ -247,6 +261,17 @@
         ══════════════════════════════════ -->
         <div id="tab-history" class="tab-panel p-6">
             <h2 class="text-base font-black text-slate-900 mb-5">Service History</h2>
+
+            <!-- Pending booking banner (shown if a booking request is in progress) -->
+            <div id="pending-booking-banner" class="hidden mb-5 p-4 bg-brand-teal/10 border border-brand-teal/30 rounded-xl flex items-start gap-3">
+                <svg class="w-5 h-5 text-brand-teal shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <div>
+                    <p class="text-sm font-black text-slate-900">Pending Booking Request</p>
+                    <p id="pending-booking-text" class="text-xs text-slate-600 font-medium mt-0.5"></p>
+                    <span class="inline-flex items-center gap-1 mt-1.5 text-[10px] font-black uppercase tracking-wide text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">Awaiting Confirmation</span>
+                </div>
+            </div>
+
             <div id="service-history-list">
                 <div class="text-center py-12 text-slate-400">
                     <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
@@ -362,6 +387,16 @@
                 </div>
             </div>
         </div>
+            <!-- ── Plan Upgrade Section ──────────────────────────────── -->
+            <div id="plan-upgrade-section" class="mt-8 pt-8 border-t border-slate-200">
+                <h2 class="text-base font-black text-slate-900 mb-1">Change Your Plan</h2>
+                <p class="text-sm text-slate-500 font-medium mb-5">Select a new plan below. Changes take effect immediately.</p>
+                <div id="plan-cards-grid" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <!-- Populated by JS -->
+                </div>
+                <div id="plan-upgrade-msg" class="hidden mt-4 text-sm font-bold rounded-xl px-4 py-3"></div>
+            </div>
+
         <!-- ══════════════════════════════════
              TAB: SETTINGS
         ══════════════════════════════════ -->
@@ -753,6 +788,53 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════
+     MODAL: BOOK A SERVICE
+══════════════════════════════════════════════════════ -->
+<div id="booking-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md fade-up">
+        <div class="bg-brand-teal rounded-t-2xl px-6 py-4 flex justify-between items-center">
+            <h3 class="text-white font-black uppercase tracking-widest text-sm">Book a Service Visit</h3>
+            <button onclick="closeBookingModal()" class="text-white/70 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form id="booking-form" onsubmit="handleBookService(event)" class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Preferred Date</label>
+                <input id="booking-date" type="date" class="input-field">
+                <p class="text-xs text-slate-400 mt-1 font-medium">Leave blank if your date is flexible.</p>
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Notes (optional)</label>
+                <textarea id="booking-notes" class="input-field" rows="3" placeholder="Any specific issues, access instructions, or requests…"></textarea>
+            </div>
+            <div id="booking-msg" class="hidden text-xs font-bold rounded-lg px-3 py-2"></div>
+            <div class="flex gap-3">
+                <button type="button" onclick="closeBookingModal()" class="flex-1 py-3 border-2 border-slate-200 text-slate-600 font-black uppercase tracking-wider text-xs rounded-xl hover:border-slate-400 transition-colors">Cancel</button>
+                <button type="submit" id="booking-btn" class="flex-1 py-3 bg-brand-teal text-white font-black uppercase tracking-wider text-xs rounded-xl hover:bg-brand-tealDark transition-colors">Send Booking Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     MODAL: CONFIRM PLAN UPGRADE
+══════════════════════════════════════════════════════ -->
+<div id="plan-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm fade-up p-6 text-center">
+        <div class="w-14 h-14 bg-brand-teal/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg class="w-7 h-7 text-brand-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        </div>
+        <h2 class="text-lg font-black text-slate-900 mb-1">Confirm Plan Change</h2>
+        <p id="plan-confirm-text" class="text-sm text-slate-500 font-medium mb-6"></p>
+        <div class="flex gap-3">
+            <button onclick="closePlanConfirmModal()" class="flex-1 py-3 border-2 border-slate-200 text-slate-600 font-black uppercase tracking-wider text-xs rounded-xl hover:bg-slate-50 transition-colors">Cancel</button>
+            <button id="plan-confirm-btn" onclick="confirmPlanUpgrade()" class="flex-1 py-3 bg-brand-teal text-white font-black uppercase tracking-wider text-xs rounded-xl hover:bg-brand-tealDark transition-colors">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
      JAVASCRIPT
 ══════════════════════════════════════════════════════ -->
 <script>
@@ -841,6 +923,11 @@
 
         // Service history
         renderServiceHistory(p.serviceHistory || []);
+
+        // Fault reports mini-list + pending booking banner + plan cards
+        renderFaultReportsMini(p.faultReports || []);
+        renderPendingBooking(p.settings || {});
+        renderPlanCards(p.plan);
 
         // Show dashboard
         document.getElementById('loading-overlay').style.display = 'none';
@@ -1269,9 +1356,16 @@
         // Next renewal = same day of month, next month from today
         const renewal = new Date(); renewal.setDate(joinDate.getDate()); renewal.setMonth(renewal.getMonth() + 1);
         document.getElementById('set-info-renewal').textContent = renewal.toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' });
-        // Next service = 1 year from account creation (annual service)
-        const nextService = new Date(joinDate); nextService.setFullYear(nextService.getFullYear() + 1);
-        document.getElementById('set-info-service').textContent = nextService.toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' });
+        // Next service = lastServiceAt (or join date) + plan-specific interval
+        const PLAN_INTERVALS = { domestic: 365, aircon: 180, commercial: 90 };
+        const intervalDays = PLAN_INTERVALS[p.plan] || 365;
+        const lastServiceAt = s.lastServiceAt ? new Date(s.lastServiceAt) : joinDate;
+        const nextService = new Date(lastServiceAt);
+        nextService.setDate(nextService.getDate() + intervalDays);
+        const isOverdue = nextService < new Date();
+        const serviceEl = document.getElementById('set-info-service');
+        serviceEl.textContent = nextService.toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' });
+        serviceEl.className = isOverdue ? 'text-sm font-black text-red-600' : 'text-sm font-black text-slate-800';
 
         // Referral code: first 6 chars of userId uppercased
         const refCode = 'FF-' + (p.userId || 'XXXXXX').slice(0,6).toUpperCase();
@@ -1359,8 +1453,156 @@
         });
     };
 
+    // ── Fault reports mini-list on Overview ───────────────────────────────
+    function renderFaultReportsMini(faultReports) {
+        const recent = (faultReports || []).slice(-3).reverse();
+        const card   = document.getElementById('fault-reports-card');
+        const list   = document.getElementById('fault-reports-list');
+        if (!recent.length) { card.classList.add('hidden'); return; }
+        card.classList.remove('hidden');
+        const STATUS_STYLE = {
+            'Logged':      'bg-amber-100 text-amber-700',
+            'In Progress': 'bg-blue-100 text-blue-700',
+            'Resolved':    'bg-green-100 text-green-700',
+            'Closed':      'bg-slate-100 text-slate-500'
+        };
+        list.innerHTML = recent.map(r => `
+            <div class="flex items-center justify-between gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-slate-900 truncate">${r.description}</p>
+                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">${new Date(r.loggedAt).toLocaleDateString('en-ZA')} · Ref: ${r.id}</p>
+                </div>
+                <span class="text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full shrink-0 ${STATUS_STYLE[r.status] || STATUS_STYLE['Logged']}">${r.status}</span>
+            </div>`
+        ).join('');
+    }
+
+    // ── Pending booking banner ─────────────────────────────────────────────
+    function renderPendingBooking(settings) {
+        const booking = settings && settings.pendingBooking;
+        const banner  = document.getElementById('pending-booking-banner');
+        const text    = document.getElementById('pending-booking-text');
+        if (!booking || booking.status === 'Confirmed') { banner.classList.add('hidden'); return; }
+        banner.classList.remove('hidden');
+        let str = 'Booking requested';
+        if (booking.preferredDate) str += ' for ' + new Date(booking.preferredDate).toLocaleDateString('en-ZA', {day:'numeric', month:'long', year:'numeric'});
+        if (booking.notes) str += ' · ' + booking.notes;
+        text.textContent = str;
+    }
+
+    // ── Service booking modal ──────────────────────────────────────────────
+    window.openBookingModal = function() {
+        document.getElementById('booking-date').value = '';
+        document.getElementById('booking-notes').value = '';
+        document.getElementById('booking-msg').classList.add('hidden');
+        document.getElementById('booking-modal').classList.remove('hidden');
+    };
+    window.closeBookingModal = function() {
+        document.getElementById('booking-modal').classList.add('hidden');
+        document.getElementById('booking-form').reset();
+    };
+
+    window.handleBookService = async function(e) {
+        e.preventDefault();
+        const btn  = document.getElementById('booking-btn');
+        const msg  = document.getElementById('booking-msg');
+        btn.disabled = true; btn.textContent = 'Sending…'; msg.classList.add('hidden');
+        try {
+            const res = await fetch('/api/client/book-service', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    preferredDate: document.getElementById('booking-date').value || '',
+                    notes:         document.getElementById('booking-notes').value.trim()
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) { showMsg(msg, data.error || 'Failed to submit booking.', 'error'); return; }
+            showMsg(msg, '✅ Booking request sent! We\'ll confirm your appointment shortly.', 'success');
+            // Update local profile settings + show banner
+            if (currentProfile) {
+                if (!currentProfile.settings) currentProfile.settings = {};
+                currentProfile.settings.pendingBooking = data.booking;
+                renderPendingBooking(currentProfile.settings);
+            }
+            setTimeout(closeBookingModal, 2500);
+        } catch(ex) {
+            showMsg(msg, 'Network error. Please call us directly.', 'error');
+        } finally { btn.disabled = false; btn.textContent = 'Send Booking Request'; }
+    };
+
+    // ── Plan upgrade ───────────────────────────────────────────────────────
+    let pendingNewPlan = '';
+
+    function renderPlanCards(currentPlan) {
+        const grid = document.getElementById('plan-cards-grid');
+        if (!grid) return;
+        const plans = [
+            { key:'domestic',   icon:'🧊', label:'Domestic Fridge Cover',   price:'R50/mo',  priceNum:50,  sla:'24 hrs', desc:'Perfect for home refrigerators' },
+            { key:'aircon',     icon:'❄️', label:'Air Conditioning Cover',  price:'R100/mo', priceNum:100, sla:'8 hrs',  desc:'For residential & light commercial AC' },
+            { key:'commercial', icon:'🏭', label:'Commercial Unit Cover',   price:'R250/mo', priceNum:250, sla:'4 hrs',  desc:'Full cover for commercial refrigeration' }
+        ];
+        grid.innerHTML = plans.map(p => {
+            const isCurrent = p.key === currentPlan;
+            return `<div class="border-2 rounded-2xl p-4 cursor-pointer transition-all ${isCurrent ? 'border-brand-teal bg-brand-teal/5' : 'border-slate-200 hover:border-brand-teal/50'}" onclick="${isCurrent ? '' : `selectPlan('${p.key}')`}">
+                <div class="text-2xl mb-2">${p.icon}</div>
+                <p class="text-sm font-black text-slate-900">${p.label}</p>
+                <p class="text-xs text-slate-500 font-medium mt-0.5 mb-2">${p.desc}</p>
+                <p class="text-lg font-black text-brand-blue">${p.price}</p>
+                <p class="text-xs text-slate-400 font-medium">SLA: ${p.sla}</p>
+                ${isCurrent
+                    ? '<span class="mt-3 inline-flex items-center gap-1 text-[10px] font-black uppercase text-brand-teal bg-brand-teal/10 px-2 py-1 rounded-full">✓ Current Plan</span>'
+                    : `<button onclick="selectPlan('${p.key}')" class="mt-3 w-full py-2 bg-brand-blue text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-brand-dark transition-colors">Switch to This Plan</button>`
+                }
+            </div>`;
+        }).join('');
+    }
+
+    window.selectPlan = function(newPlan) {
+        pendingNewPlan = newPlan;
+        const LABELS = { domestic:'Domestic Fridge Cover (R50/mo)', aircon:'Air Conditioning Cover (R100/mo)', commercial:'Commercial Unit Cover (R250/mo)' };
+        document.getElementById('plan-confirm-text').textContent = `Switch to ${LABELS[newPlan] || newPlan}? Your new coverage will be active immediately.`;
+        document.getElementById('plan-confirm-modal').classList.remove('hidden');
+    };
+    window.closePlanConfirmModal = function() {
+        document.getElementById('plan-confirm-modal').classList.add('hidden');
+        pendingNewPlan = '';
+    };
+
+    window.confirmPlanUpgrade = async function() {
+        if (!pendingNewPlan) return;
+        const btn = document.getElementById('plan-confirm-btn');
+        const msg = document.getElementById('plan-upgrade-msg');
+        btn.disabled = true; btn.textContent = 'Updating…';
+        try {
+            const res = await fetch('/api/client/upgrade-plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newPlan: pendingNewPlan })
+            });
+            const data = await res.json();
+            closePlanConfirmModal();
+            if (!res.ok) { showMsg(msg, data.error || 'Plan update failed.', 'error'); msg.classList.remove('hidden'); return; }
+            // Update local state + re-render affected sections
+            currentProfile = data.profile || currentProfile;
+            if (currentProfile) {
+                currentProfile.plan = pendingNewPlan;
+                populateDashboard(currentProfile);
+                renderPlanCards(currentProfile.plan);
+            }
+            msg.textContent = '✅ Plan updated successfully! Your new coverage is now active.';
+            msg.className = 'mt-4 text-sm font-bold rounded-xl px-4 py-3 bg-green-50 text-green-700 border border-green-200';
+            msg.classList.remove('hidden');
+            setTimeout(() => msg.classList.add('hidden'), 5000);
+        } catch(ex) {
+            closePlanConfirmModal();
+            showMsg(msg, 'Network error. Please try again.', 'error');
+            msg.classList.remove('hidden');
+        } finally { btn.disabled = false; btn.textContent = 'Confirm'; }
+    };
+
     // ── Close modals on backdrop click ─────────────────────────────────────
-    ['fault-modal','appliance-modal'].forEach(id => {
+    ['fault-modal','appliance-modal','booking-modal','plan-confirm-modal'].forEach(id => {
         document.getElementById(id).addEventListener('click', function(e) {
             if (e.target === this) this.classList.add('hidden');
         });
