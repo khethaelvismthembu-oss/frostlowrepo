@@ -1,0 +1,12 @@
+{
+  "userId": "687cd1a299ea3dfaf755864006eff359",
+  "firstName": "Test",
+  "lastName": "Client",
+  "email": "test@frostflow.co.za",
+  "phone": "0821234567",
+  "plan": "domestic",
+  "passwordHash": "1b9c789208814207a05342f379493550132a4afe37d3478d4896f5830fce10deceaacd1a7ccf249acf017c4a4063d63294e8b7a15f829a0ac7d8689b20137fc7",
+  "passwordSalt": "4c7dbc1c8ed45a68208d72d9a915644ed0616dbb66e34db1af0bff7befa61bc4",
+  "createdAt": "2026-03-16T20:46:42.724Z",
+  "serviceHistory": []
+}

@@ -1,0 +1,124 @@
+{
+  "userId": "d429e309a89167acfec4d749efeb33bf",
+  "firstName": "Demo",
+  "lastName": "User",
+  "email": "demo@frostflow.co.za",
+  "phone": "0821234567",
+  "plan": "domestic",
+  "passwordHash": "dfba16c4496d636a4c13f977c038ab02b4e385f63ea4a84e7ec5f1af2b6c8ed93f9bbce889d3e960391ea29ea8e5630a830a09ddf47e08883ae14d27efea841f",
+  "passwordSalt": "72b3730c713647567982d382013bc20edc01535254a33a326b2e12d0104e4b52",
+  "createdAt": "2026-03-17T07:01:45.816Z",
+  "serviceHistory": [
+    {
+      "id": "SV-001",
+      "type": "Annual Service",
+      "technician": "John Smith",
+      "date": "2026-02-15",
+      "notes": "Full service completed. Refrigerant topped up.",
+      "amount": 850,
+      "paid": true,
+      "status": "Paid",
+      "rating": 4,
+      "ratingComment": "Great service, very professional!",
+      "ratedAt": "2026-03-17T07:10:42.090Z"
+    },
+    {
+      "id": "SV-002",
+      "type": "Repair",
+      "technician": "Mike Jones",
+      "date": "2026-01-10",
+      "notes": "Fixed compressor leak.",
+      "amount": 1200,
+      "paid": false,
+      "status": "Pending"
+    }
+  ],
+  "emailVerified": true,
+  "emailVerifToken": "a2b34021f43ed67b7734fb5cb34c1b77f08a0e2ec9f171268f6b8989661fcd9a",
+  "emailVerifExpiry": "2026-03-18T07:01:45.712Z",
+  "status": "active",
+  "appliances": [
+    {
+      "id": "AP-001",
+      "name": "Samsung Fridge",
+      "model": "RT38K5400S9",
+      "location": "Kitchen",
+      "serialNo": "SN12345",
+      "warrantyExpiry": "2026-04-01"
+    },
+    {
+      "id": "AP-002",
+      "name": "LG Air Conditioner",
+      "model": "S24EQ",
+      "location": "Lounge",
+      "serialNo": "SN67890",
+      "warrantyExpiry": "2024-12-31"
+    },
+    {
+      "id": "AP-003",
+      "name": "Whirlpool Chest Freezer",
+      "model": "WZCF200",
+      "location": "Garage",
+      "serialNo": "SN11111",
+      "warrantyExpiry": null
+    }
+  ],
+  "faultReports": [
+    {
+      "id": "FR-001",
+      "description": "Fridge making loud noise at night",
+      "applianceId": "AP-001",
+      "urgency": "medium",
+      "status": "In Progress",
+      "loggedAt": "2026-03-10T08:00:00Z",
+      "photoUrl": null
+    },
+    {
+      "id": "FR-002",
+      "description": "AC not cooling properly",
+      "applianceId": "AP-002",
+      "urgency": "high",
+      "status": "Logged",
+      "loggedAt": "2026-03-15T14:30:00Z",
+      "photoUrl": null
+    }
+  ],
+  "settings": {
+    "pendingBooking": {
+      "preferredDate": "2026-03-25",
+      "notes": "AC service needed before summer",
+      "requestedAt": "2026-03-17T09:00:00Z"
+    },
+    "loginHistory": [
+      {
+        "ts": "2026-03-17T07:24:02.105Z",
+        "ip": "::1",
+        "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.1.6679 Chrome/144.0.7559.173 E",
+        "success": true
+      },
+      {
+        "ts": "2026-03-17T07:23:36.523Z",
+        "ip": "::1",
+        "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.1.6679 Chrome/144.0.7559.173 E",
+        "success": true
+      },
+      {
+        "ts": "2026-03-17T07:08:56.473Z",
+        "ip": "::1",
+        "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.1.6679 Chrome/144.0.7559.173 E",
+        "success": true
+      },
+      {
+        "ts": "2026-03-17T07:05:46.389Z",
+        "ip": "::1",
+        "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.1.6679 Chrome/144.0.7559.173 E",
+        "success": true
+      }
+    ],
+    "planUpdatedAt": "2026-03-17T07:12:01.626Z",
+    "referralCode": "FF-86F96C",
+    "referralCount": 0
+  },
+  "updatedAt": "2026-03-17T07:24:02.106Z",
+  "paidPlan": "domestic"
+}

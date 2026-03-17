@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /wp-admin/
+Disallow: /private/
+Disallow: /data/
+Disallow: /api/
+
+Sitemap: https://www.frostflowrefridgerations.co.za/sitemap.xml

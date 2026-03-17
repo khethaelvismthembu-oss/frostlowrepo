@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Admin Panel — FrostFlow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter','sans-serif'] },
+                    colors: { brand: { blue:'#1a3e6e', dark:'#0d2234', teal:'#38c5f5', tealDark:'#22acd8', cyan:'#38c5f5', cyanDark:'#22acd8', navy:'#1a3e6e' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: linear-gradient(135deg, #0d2234 0%, #1a3e6e 50%, #0d2234 100%); min-height:100vh; }
+        .card { background:#fff; border-radius:0.5rem; border:1px solid #e2e8f0; box-shadow:0 8px 32px rgba(0,0,0,0.18); }
+        .admin-main { background:#f1f5f9; }
+        .input-field { width:100%; padding:0.625rem 0.875rem; border:2px solid #e2e8f0; border-radius:0.375rem; font-size:0.9375rem; font-weight:500; color:#0f172a; transition:border-color 0.2s; outline:none; }
+        .input-field:focus { border-color:#1a3e6e; box-shadow:0 0 0 3px rgba(26,62,110,0.12); }
+        .badge { display:inline-flex; align-items:center; padding:0.2rem 0.65rem; border-radius:9999px; font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+        .fade-up { animation:fadeUp 0.3s ease forwards; }
+        .plan-domestic { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+        .plan-aircon   { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+        .plan-commercial { background:#faf5ff; color:#7c3aed; border:1px solid #e9d5ff; }
+        .status-active { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+        .status-pending { background:#fffbeb; color:#b45309; border:1px solid #fde68a; }
+        .status-cancel { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
+        .fault-logged   { background:#fffbeb; color:#b45309; }
+        .fault-progress { background:#eff6ff; color:#1d4ed8; }
+        .fault-resolved { background:#f0fdf4; color:#15803d; }
+        .fault-closed   { background:#f1f5f9; color:#64748b; }
+    </style>
+</head>
+<body class="font-sans antialiased text-slate-900 min-h-screen">
+
+<!-- ══════════════ LOGIN SCREEN ══════════════ -->
+<div id="login-screen" class="min-h-screen flex flex-col items-center justify-center px-4">
+    <div class="card w-full max-w-sm overflow-hidden">
+        <!-- Accent bar -->
+        <div style="height:3px;background:linear-gradient(90deg,#38c5f5,#22acd8,#1a3e6e);"></div>
+        <!-- Header -->
+        <div class="px-8 py-6 text-center" style="background:linear-gradient(135deg,#0d2234,#1a3e6e);">
+            <a href="index.html">
+                <img src="images/frostflowlogo.png" alt="FrostFlow" class="h-10 w-auto mx-auto mb-3" style="filter:brightness(0) invert(1);" onerror="this.style.display='none'">
+                <span class="text-white text-xl font-black uppercase tracking-tight">FrostFlow</span>
+            </a>
+            <p class="text-slate-400 text-xs mt-1 font-semibold uppercase tracking-widest">Admin Panel</p>
+        </div>
+        <!-- Form body -->
+        <div class="p-8">
+            <h1 class="text-xl font-black text-slate-900 mb-1">Sign In</h1>
+            <p class="text-sm text-slate-500 font-medium mb-6">Enter your admin password to continue.</p>
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1.5">Password</label>
+                    <input id="admin-password" type="password" class="input-field" placeholder="Admin password" required autofocus>
+                </div>
+                <div id="login-error" class="hidden text-xs font-bold text-red-600 bg-red-50 rounded px-3 py-2"></div>
+                <button type="submit" id="login-btn" class="w-full py-3 bg-brand-blue text-white font-black uppercase tracking-wider text-xs rounded hover:bg-brand-dark transition-colors" style="border-radius:2px;">
+                    Sign In
+                </button>
+            </form>
+        </div>
+    </div>
+    <p class="mt-5 text-xs text-white/50">← <a href="index.html" class="hover:text-white font-bold transition-colors">Back to site</a></p>
+</div>
+
+<!-- ══════════════ ADMIN DASHBOARD ══════════════ -->
+<div id="admin-dashboard" class="hidden admin-main min-h-screen">
+
+    <!-- Top Nav -->
+    <header class="text-white shadow-xl sticky top-0 z-40" style="background:linear-gradient(90deg,#0d2234,#1a3e6e);border-bottom:2px solid #38c5f5;">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center py-3">
+            <div class="flex items-center gap-3">
+                <span class="font-black text-sm uppercase tracking-tight">FROST<span class="text-brand-teal">FLOW</span></span>
+                <span class="text-slate-500 text-xs font-bold uppercase tracking-widest ml-1">Admin</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="text-slate-400 text-xs font-medium hidden sm:block">Admin Panel</span>
+                <button onclick="handleAdminLogout()" class="flex items-center gap-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white border border-red-600/30 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wide transition-all">
+                    Sign Out
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Admin Tabs -->
+    <div class="bg-white border-b border-slate-200 sticky top-[52px] z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 flex gap-1">
+            <button onclick="switchAdminTab('clients')" id="atab-clients" class="atab active px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 border-brand-blue text-brand-blue transition-all">👥 Clients</button>
+            <button onclick="switchAdminTab('technicians')" id="atab-technicians" class="atab px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 border-transparent text-slate-500 hover:text-slate-900 transition-all">🔧 Technicians</button>
+        </div>
+    </div>
+    <style>
+        .atab.active { border-bottom-color:#1a3e6e !important; color:#1a3e6e !important; }
+    </style>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+
+        <!-- ═══════ CLIENTS TAB ═══════ -->
+        <div id="apanel-clients">
+
+        <!-- Stats Row -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8 fade-up">
+            <div class="card p-5 text-center">
+                <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Total Clients</p>
+                <p id="stat-total" class="text-3xl font-black text-slate-900">—</p>
+            </div>
+            <div class="card p-5 text-center">
+                <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Active</p>
+                <p id="stat-active" class="text-3xl font-black text-brand-teal">—</p>
+            </div>
+            <div class="card p-5 text-center">
+                <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Cancellations</p>
+                <p id="stat-cancel" class="text-3xl font-black text-red-500">—</p>
+            </div>
+            <div class="card p-5 text-center">
+                <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Open Faults</p>
+                <p id="stat-faults" class="text-3xl font-black text-amber-500">—</p>
+            </div>
+        </div>
+
+        <!-- Search + Refresh -->
+        <div class="flex flex-col sm:flex-row gap-3 mb-5">
+            <input id="client-search" type="text" placeholder="Search by name, email or plan…" oninput="renderClients()" class="input-field flex-1">
+            <button onclick="loadClients()" class="flex items-center gap-2 bg-brand-blue text-white font-black uppercase tracking-wider text-xs px-5 py-2.5 rounded-xl hover:bg-brand-dark transition-colors whitespace-nowrap">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Refresh
+            </button>
+        </div>
+
+        <!-- Clients Table -->
+        <div class="card overflow-hidden fade-up">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200">
+                            <th class="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-400">Client</th>
+                            <th class="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-400">Plan</th>
+                            <th class="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-400">Status</th>
+                            <th class="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-400 hidden md:table-cell">Last Service</th>
+                            <th class="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-400 hidden lg:table-cell">Next Due</th>
+                            <th class="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-400 hidden sm:table-cell">Faults / Rating</th>
+                            <th class="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-400">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clients-tbody">
+                        <tr><td colspan="7" class="text-center py-16 text-slate-400">
+                            <div class="w-8 h-8 border-4 border-brand-teal border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                            <p class="text-sm font-bold">Loading clients…</p>
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        </div><!-- /apanel-clients -->
+
+        <!-- ═══════ TECHNICIANS TAB ═══════ -->
+        <div id="apanel-technicians" class="hidden">
+            <div class="flex items-center justify-between mb-5">
+                <div>
+                    <h2 class="text-base font-black text-slate-900">Technician Management</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Manage your team of certified technicians.</p>
+                </div>
+                <button onclick="openAddTechModal()" class="flex items-center gap-2 bg-brand-teal text-white font-black uppercase tracking-wider text-xs px-5 py-2.5 rounded-xl hover:bg-brand-tealDark transition-colors shadow">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    Add Technician
+                </button>
+            </div>
+            <div id="tech-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="col-span-full text-center py-12 text-slate-400">
+                    <div class="w-8 h-8 border-4 border-brand-teal border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                    <p class="text-sm font-bold">Loading technicians…</p>
+                </div>
+            </div>
+
+            <!-- WhatsApp Broadcast -->
+            <div class="card p-5 mt-6">
+                <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">📲 WhatsApp Notification</p>
+                <p class="text-xs text-slate-500 mb-3 font-medium">Send a WhatsApp message to the configured admin number (CallMeBot).</p>
+                <div class="flex gap-3">
+                    <input id="wa-message" type="text" class="input-field flex-1" placeholder="e.g. Please check on client John — urgent fault report">
+                    <button onclick="sendAdminWhatsApp()" class="bg-green-600 text-white font-black uppercase tracking-wider text-xs px-5 py-2.5 rounded-xl hover:bg-green-700 transition-colors whitespace-nowrap">Send WhatsApp</button>
+                </div>
+                <div id="wa-msg" class="hidden text-xs font-bold rounded-lg px-3 py-2 mt-2"></div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- ══════════════ ADD TECHNICIAN MODAL ══════════════ -->
+<div id="tech-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md fade-up">
+        <div class="flex items-center justify-between p-5 border-b border-slate-100">
+            <h2 id="tech-modal-title" class="text-base font-black text-slate-900">Add Technician</h2>
+            <button onclick="closeTechModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form id="tech-form" onsubmit="handleSaveTech(event)" class="p-5 space-y-4">
+            <input type="hidden" id="tech-id">
+            <div class="grid grid-cols-2 gap-3">
+                <div class="col-span-2">
+                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1.5">Full Name *</label>
+                    <input id="tech-name" type="text" class="input-field" placeholder="e.g. John Ntuli" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1.5">Phone</label>
+                    <input id="tech-phone" type="text" class="input-field" placeholder="+27 73 xxx xxxx">
+                </div>
+                <div>
+                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1.5">Email</label>
+                    <input id="tech-email" type="email" class="input-field" placeholder="tech@email.com">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1.5">Speciality</label>
+                    <select id="tech-speciality" class="input-field">
+                        <option value="">General</option>
+                        <option value="Domestic Fridges">Domestic Fridges</option>
+                        <option value="Air Conditioning">Air Conditioning</option>
+                        <option value="Commercial Units">Commercial Units</option>
+                        <option value="Gas & Refrigerants">Gas & Refrigerants</option>
+                        <option value="Electrical">Electrical</option>
+                    </select>
+                </div>
+            </div>
+            <div id="tech-msg" class="hidden text-xs font-bold rounded-lg px-3 py-2"></div>
+            <div class="flex gap-3 pt-1">
+                <button type="button" onclick="closeTechModal()" class="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-black uppercase tracking-wider text-xs rounded-xl hover:bg-slate-50 transition-colors">Cancel</button>
+                <button type="submit" id="tech-btn" class="flex-1 py-2.5 bg-brand-teal text-white font-black uppercase tracking-wider text-xs rounded-xl hover:bg-brand-tealDark transition-colors">Save Technician</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════ LOG VISIT MODAL ══════════════ -->
+<div id="visit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md fade-up">
+        <div class="flex items-center justify-between p-5 border-b border-slate-100">
+            <h2 class="text-base font-black text-slate-900">Log Service Visit</h2>
+            <button onclick="closeVisitModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form id="visit-form" onsubmit="handleLogVisit(event)" class="p-5 space-y-4">
+            <input type="hidden" id="visit-userId">
+            <div>
+                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1.5">Client</label>
+                <p id="visit-clientName" class="text-sm font-bold text-slate-900 bg-slate-50 rounded-lg px-3 py-2.5"></p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1.5">Visit Type</label>
+                    <select id="visit-type" class="input-field" required>
+                        <option value="">— Select type —</option>
+                        <option>Annual Service</option>
+                        <option>6-Month Service</option>
+                        <option>Quarterly Service</option>
+                        <option>Emergency Call-out</option>
+                        <option>Repair</option>
+                        <option>Gas Refill</option>
+                        <option>Installation</option>
+                        <option>Inspection</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1.5">Date</label>
+                    <input id="visit-date" type="date" class="input-field" required>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1.5">Technician</label>
+                    <select id="visit-technician" class="input-field">
+                        <option value="">— Select or type below —</option>
+                    </select>
+                    <input id="visit-technician-custom" type="text" class="input-field mt-1.5" placeholder="Or type name manually">
+                </div>
+                <div>
+                    <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1.5">Amount (R)</label>
+                    <input id="visit-amount" type="number" step="0.01" min="0" class="input-field" placeholder="0.00">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase tracking-widest text-slate-400 mb-1.5">Notes</label>
+                <textarea id="visit-notes" rows="3" class="input-field" placeholder="Work done, parts used…"></textarea>
+            </div>
+            <!-- Send report checkbox -->
+            <label class="flex items-center gap-2.5 cursor-pointer select-none p-3 bg-green-50 border border-green-200 rounded-xl">
+                <input type="checkbox" id="visit-send-report" class="w-4 h-4 accent-green-600">
+                <div>
+                    <span class="text-xs font-black text-slate-900">Email service report to client</span>
+                    <p class="text-[10px] text-slate-500 font-medium">Sends a branded report email with rating request</p>
+                </div>
+            </label>
+            <div id="visit-msg" class="hidden text-xs font-bold rounded-lg px-3 py-2"></div>
+            <div class="flex gap-3 pt-1">
+                <button type="button" onclick="closeVisitModal()" class="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-black uppercase tracking-wider text-xs rounded-xl hover:bg-slate-50 transition-colors">Cancel</button>
+                <button type="submit" id="visit-btn" class="flex-1 py-2.5 bg-brand-teal text-white font-black uppercase tracking-wider text-xs rounded-xl hover:bg-brand-tealDark transition-colors">Log Visit</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════ FAULT REPORTS PANEL ══════════════ -->
+<div id="fault-panel" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col fade-up">
+        <div class="flex items-center justify-between p-5 border-b border-slate-100 shrink-0">
+            <div>
+                <h2 class="text-base font-black text-slate-900">Fault Reports</h2>
+                <p id="fault-panel-client" class="text-xs text-slate-500 font-medium mt-0.5"></p>
+            </div>
+            <button onclick="closeFaultPanel()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div id="fault-panel-body" class="overflow-y-auto p-5 space-y-4 flex-1">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+'use strict';
+
+let allClients = [];
+let allTechnicians = [];
+let currentFaultUserId = '';
+
+// ── Admin tabs ──────────────────────────────────────────────────────────────
+window.switchAdminTab = function(tab) {
+    document.querySelectorAll('.atab').forEach(b => b.classList.remove('active'));
+    document.getElementById('atab-' + tab).classList.add('active');
+    document.getElementById('apanel-clients').classList.toggle('hidden', tab !== 'clients');
+    document.getElementById('apanel-technicians').classList.toggle('hidden', tab !== 'technicians');
+    if (tab === 'technicians') loadTechnicians();
+};
+// Set initial active state
+document.getElementById('atab-clients').classList.add('active');
+
+// ── Login ──────────────────────────────────────────────────────────────────
+window.handleLogin = async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('login-btn');
+    const err = document.getElementById('login-error');
+    btn.disabled = true; btn.textContent = 'Signing in…'; err.classList.add('hidden');
+    try {
+        const res = await fetch('/api/admin/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: document.getElementById('admin-password').value }) });
+        const data = await res.json();
+        if (!res.ok) { err.textContent = data.error || 'Incorrect password.'; err.classList.remove('hidden'); return; }
+        showDashboard();
+    } catch(ex) {
+        err.textContent = 'Network error. Please try again.'; err.classList.remove('hidden');
+    } finally { btn.disabled = false; btn.textContent = 'Sign In'; }
+};
+
+// ── Logout ─────────────────────────────────────────────────────────────────
+window.handleAdminLogout = async function() {
+    await fetch('/api/admin/logout', { method:'POST' });
+    document.getElementById('admin-dashboard').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('admin-password').value = '';
+};
+
+// ── Init: try silent auth check ────────────────────────────────────────────
+async function init() {
+    try {
+        const res = await fetch('/api/admin/clients');
+        if (res.ok) { showDashboard(); return; }
+    } catch(e) {}
+    // Not logged in — show login screen (already visible)
+}
+
+function showDashboard() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('admin-dashboard').classList.remove('hidden');
+    loadClients();
+}
+
+// ── Load Clients ───────────────────────────────────────────────────────────
+window.loadClients = async function() {
+    document.getElementById('clients-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-16 text-slate-400"><div class="w-8 h-8 border-4 border-brand-teal border-t-transparent rounded-full animate-spin mx-auto mb-3"></div><p class="text-sm font-bold">Loading…</p></td></tr>`;
+    try {
+        const res = await fetch('/api/admin/clients');
+        if (res.status === 401) { handleAdminLogout(); return; }
+        const data = await res.json();
+        allClients = data.clients || [];
+        updateStats();
+        renderClients();
+    } catch(e) {
+        document.getElementById('clients-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-12 text-red-400 font-bold text-sm">Failed to load clients.</td></tr>`;
+    }
+};
+
+function updateStats() {
+    const total   = allClients.length;
+    const active  = allClients.filter(c => c.status === 'active').length;
+    const cancel  = allClients.filter(c => c.status === 'Cancellation Pending').length;
+    const faults  = allClients.reduce((n, c) => n + (c.faultReports || []).filter(f => f.status !== 'Resolved' && f.status !== 'Closed').length, 0);
+    document.getElementById('stat-total').textContent  = total;
+    document.getElementById('stat-active').textContent = active;
+    document.getElementById('stat-cancel').textContent = cancel;
+    document.getElementById('stat-faults').textContent = faults;
+}
+
+window.renderClients = function() {
+    const q = (document.getElementById('client-search').value || '').toLowerCase();
+    const filtered = q ? allClients.filter(c =>
+        (c.firstName||'').toLowerCase().includes(q) ||
+        (c.lastName||'').toLowerCase().includes(q) ||
+        (c.email||'').toLowerCase().includes(q) ||
+        (c.plan||'').toLowerCase().includes(q)
+    ) : allClients;
+
+    if (!filtered.length) {
+        document.getElementById('clients-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-12 text-slate-400 font-bold text-sm">No clients found.</td></tr>`;
+        return;
+    }
+
+    const PLAN_LABELS = { domestic:'Domestic Fridge', aircon:'Air Conditioning', commercial:'Commercial' };
+    const INTERVAL = { domestic:365, aircon:180, commercial:90 };
+
+    const rows = filtered.map(c => {
+        const history   = (c.serviceHistory || []).sort((a,b) => new Date(b.date||b.loggedAt||0) - new Date(a.date||a.loggedAt||0));
+        const lastEntry = history[0];
+        const lastDate  = lastEntry ? (lastEntry.date || new Date(lastEntry.loggedAt).toLocaleDateString('en-ZA')) : '—';
+        let nextDue = '—';
+        if (c.plan && INTERVAL[c.plan]) {
+            const baseMs = lastEntry ? new Date(lastEntry.date || lastEntry.loggedAt).getTime() : new Date(c.createdAt).getTime();
+            const dueMs  = baseMs + INTERVAL[c.plan] * 86400000;
+            const dueD   = new Date(dueMs);
+            nextDue      = dueD.toLocaleDateString('en-ZA');
+            const isOver = dueMs < Date.now();
+            nextDue      = isOver ? `<span class="text-red-600 font-black">${nextDue} ⚠</span>` : nextDue;
+        }
+        const openFaults = (c.faultReports || []).filter(f => f.status !== 'Resolved' && f.status !== 'Closed').length;
+        const totalFaults = (c.faultReports || []).length;
+        const ratedVisits = (c.serviceHistory || []).filter(v => v.rating);
+        const avgRating = ratedVisits.length ? (ratedVisits.reduce((s,v) => s + v.rating, 0) / ratedVisits.length) : null;
+
+        const planClass  = c.plan === 'domestic' ? 'plan-domestic' : c.plan === 'aircon' ? 'plan-aircon' : c.plan === 'commercial' ? 'plan-commercial' : '';
+        const statClass  = c.status === 'active' ? 'status-active' : c.status === 'Cancellation Pending' ? 'status-cancel' : 'status-pending';
+        const statLabel  = c.status === 'active' ? 'Active' : c.status === 'Cancellation Pending' ? 'Cancelling' : c.status === 'pending_verification' ? 'Unverified' : c.status;
+
+        return `<tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+            <td class="px-4 py-3.5">
+                <p class="font-black text-slate-900 text-sm">${escHtml(c.firstName)} ${escHtml(c.lastName||'')}</p>
+                <p class="text-xs text-slate-400 font-medium">${escHtml(c.email)}</p>
+                ${c.phone ? `<p class="text-xs text-slate-400 font-medium">${escHtml(c.phone)}</p>` : ''}
+            </td>
+            <td class="px-4 py-3.5">
+                ${c.plan ? `<span class="badge ${planClass}">${PLAN_LABELS[c.plan]||c.plan}</span>` : '<span class="text-xs text-slate-400">—</span>'}
+            </td>
+            <td class="px-4 py-3.5">
+                <span class="badge ${statClass}">${statLabel}</span>
+                ${c.settings && c.settings.pendingBooking ? '<br><span class="badge mt-1" style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;">Booking ✓</span>' : ''}
+            </td>
+            <td class="px-4 py-3.5 hidden md:table-cell text-xs font-bold text-slate-700">${lastDate}</td>
+            <td class="px-4 py-3.5 hidden lg:table-cell text-xs font-bold">${nextDue}</td>
+            <td class="px-4 py-3.5 hidden sm:table-cell">
+                ${totalFaults > 0
+                    ? `<button onclick="openFaultPanel('${escHtml(c.userId)}')" class="text-xs font-black ${openFaults>0?'text-amber-600 hover:text-amber-800':'text-slate-400 hover:text-slate-600'} underline transition-colors">${openFaults} open / ${totalFaults}</button>`
+                    : '<span class="text-xs text-slate-400">None</span>'}
+                ${avgRating ? `<div class="mt-1 text-amber-400 text-xs font-bold">★ ${avgRating.toFixed(1)}</div>` : ''}
+            </td>
+            <td class="px-4 py-3.5">
+                <div class="flex flex-col gap-1.5">
+                    <button onclick="openVisitModal('${escHtml(c.userId)}','${escHtml(c.firstName)} ${escHtml(c.lastName||'')}')" class="whitespace-nowrap px-2.5 py-1.5 bg-brand-teal text-white text-[10px] font-black uppercase tracking-wide rounded-lg hover:bg-brand-tealDark transition-colors">Log Visit</button>
+                    <button onclick="sendReminder('${escHtml(c.userId)}', this)" class="whitespace-nowrap px-2.5 py-1.5 bg-brand-blue text-white text-[10px] font-black uppercase tracking-wide rounded-lg hover:bg-brand-dark transition-colors">Remind</button>
+                    <button onclick="sendMonthlyStatement('${escHtml(c.userId)}', this)" class="whitespace-nowrap px-2.5 py-1.5 bg-slate-700 text-white text-[10px] font-black uppercase tracking-wide rounded-lg hover:bg-slate-900 transition-colors">Statement</button>
+                </div>
+            </td>
+        </tr>`;
+    });
+    document.getElementById('clients-tbody').innerHTML = rows.join('');
+};
+
+// ── Visit Modal ────────────────────────────────────────────────────────────
+window.openVisitModal = function(userId, clientName) {
+    document.getElementById('visit-userId').value = userId;
+    document.getElementById('visit-clientName').textContent = clientName;
+    document.getElementById('visit-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('visit-type').value = '';
+    document.getElementById('visit-technician').value = '';
+    document.getElementById('visit-technician-custom').value = '';
+    document.getElementById('visit-amount').value = '';
+    document.getElementById('visit-notes').value = '';
+    document.getElementById('visit-send-report').checked = true;
+    document.getElementById('visit-msg').classList.add('hidden');
+    // Populate technician dropdown
+    const sel = document.getElementById('visit-technician');
+    sel.innerHTML = '<option value="">— Select or type below —</option>' +
+        allTechnicians.filter(t => t.active).map(t => `<option value="${escHtml(t.name)}">${escHtml(t.name)}${t.speciality ? ' · ' + escHtml(t.speciality) : ''}</option>`).join('');
+    document.getElementById('visit-modal').classList.remove('hidden');
+};
+
+window.closeVisitModal = function() {
+    document.getElementById('visit-modal').classList.add('hidden');
+};
+
+window.handleLogVisit = async function(e) {
+    e.preventDefault();
+    const btn  = document.getElementById('visit-btn');
+    const msg  = document.getElementById('visit-msg');
+    btn.disabled = true; btn.textContent = 'Saving…'; msg.classList.add('hidden');
+    try {
+        // Prefer dropdown selection, fall back to custom text input
+        const techDrop   = document.getElementById('visit-technician').value;
+        const techCustom = document.getElementById('visit-technician-custom').value.trim();
+        const body = {
+            userId:      document.getElementById('visit-userId').value,
+            type:        document.getElementById('visit-type').value,
+            technician:  techDrop || techCustom,
+            date:        document.getElementById('visit-date').value,
+            notes:       document.getElementById('visit-notes').value,
+            amount:      parseFloat(document.getElementById('visit-amount').value) || 0,
+            sendReport:  document.getElementById('visit-send-report').checked
+        };
+        const res  = await fetch('/api/admin/service-visit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const data = await res.json();
+        if (!res.ok) { msg.textContent = data.error || 'Failed to log visit.'; msg.className = 'text-xs font-bold rounded-lg px-3 py-2 bg-red-50 text-red-600'; msg.classList.remove('hidden'); return; }
+        msg.textContent = body.sendReport ? 'Visit logged! Service report emailed to client. ✓' : 'Visit logged successfully! ✓';
+        msg.className = 'text-xs font-bold rounded-lg px-3 py-2 bg-green-50 text-green-700'; msg.classList.remove('hidden');
+        // Update local allClients data
+        const c = allClients.find(x => x.userId === body.userId);
+        if (c) { if (!c.serviceHistory) c.serviceHistory = []; c.serviceHistory.push(data.visit); if (!c.settings) c.settings = {}; c.settings.lastServiceAt = body.date; }
+        renderClients();
+        setTimeout(() => closeVisitModal(), 1800);
+    } catch(ex) {
+        msg.textContent = 'Network error.'; msg.className = 'text-xs font-bold rounded-lg px-3 py-2 bg-red-50 text-red-600'; msg.classList.remove('hidden');
+    } finally { btn.disabled = false; btn.textContent = 'Log Visit'; }
+};
+
+// ── Send Reminder ──────────────────────────────────────────────────────────
+window.sendReminder = async function(userId, btnEl) {
+    const orig = btnEl.textContent;
+    btnEl.disabled = true; btnEl.textContent = '…';
+    try {
+        const res = await fetch('/api/admin/send-reminder', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId }) });
+        const data = await res.json();
+        if (res.ok) { btnEl.textContent = 'Sent ✓'; btnEl.className = btnEl.className.replace('bg-brand-blue hover:bg-brand-dark','bg-green-600 hover:bg-green-700'); }
+        else { alert(data.error || 'Failed to send.'); btnEl.textContent = orig; btnEl.disabled = false; }
+    } catch(ex) { alert('Network error.'); btnEl.textContent = orig; btnEl.disabled = false; }
+};
+
+// ── Send Monthly Statement ────────────────────────────────────────────────
+window.sendMonthlyStatement = async function(userId, btnEl) {
+    const orig = btnEl.textContent;
+    btnEl.disabled = true; btnEl.textContent = '…';
+    try {
+        const now = new Date();
+        const res = await fetch('/api/admin/monthly-statement', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ userId, month: now.getMonth() - 1, year: now.getFullYear() })
+        });
+        const data = await res.json();
+        if (res.ok) { btnEl.textContent = 'Sent ✓'; btnEl.className = btnEl.className.replace('bg-slate-700 hover:bg-slate-900','bg-green-600 hover:bg-green-700'); }
+        else { alert(data.error || 'Failed to send.'); btnEl.textContent = orig; btnEl.disabled = false; }
+    } catch(ex) { alert('Network error.'); btnEl.textContent = orig; btnEl.disabled = false; }
+};
+
+// ── Technician Management ──────────────────────────────────────────────────
+async function loadTechnicians() {
+    try {
+        const res = await fetch('/api/admin/technicians');
+        if (res.status === 401) return;
+        const data = await res.json();
+        allTechnicians = data.technicians || [];
+        renderTechnicians();
+    } catch(e) {}
+}
+
+function renderTechnicians() {
+    const el = document.getElementById('tech-list');
+    if (!allTechnicians.length) {
+        el.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400"><p class="text-sm font-bold">No technicians yet. Click "Add Technician" to get started.</p></div>';
+        return;
+    }
+    el.innerHTML = allTechnicians.map(t => `
+        <div class="card p-5 flex flex-col gap-3 ${!t.active ? 'opacity-50' : ''}">
+            <div class="flex items-start justify-between gap-2">
+                <div class="w-10 h-10 bg-brand-blue/10 rounded-xl flex items-center justify-center text-xl shrink-0">🔧</div>
+                <div class="flex gap-1">
+                    <button onclick="openEditTechModal('${escHtml(t.id)}')" class="text-brand-blue hover:text-brand-dark transition-colors" title="Edit">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                    <button onclick="removeTech('${escHtml(t.id)}')" class="text-slate-300 hover:text-red-500 transition-colors" title="Remove">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div>
+                <p class="font-black text-slate-900 text-sm">${escHtml(t.name)}</p>
+                ${t.speciality ? `<p class="text-xs text-slate-500 font-medium mt-0.5">${escHtml(t.speciality)}</p>` : ''}
+            </div>
+            <div class="space-y-1 text-xs text-slate-500">
+                ${t.phone ? `<p>📞 <a href="tel:${escHtml(t.phone)}" class="font-bold text-slate-700 hover:text-brand-blue">${escHtml(t.phone)}</a></p>` : ''}
+                ${t.email ? `<p>✉ <span class="font-bold text-slate-700">${escHtml(t.email)}</span></p>` : ''}
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide ${t.active ? 'text-brand-teal bg-brand-teal/10' : 'text-slate-400 bg-slate-100'} px-2.5 py-1 rounded-full">
+                    ${t.active ? '● Active' : '○ Inactive'}
+                </span>
+                <button onclick="toggleTechActive('${escHtml(t.id)}', ${!t.active})" class="text-[10px] font-black uppercase tracking-wide text-slate-400 hover:text-slate-700 transition-colors">
+                    ${t.active ? 'Deactivate' : 'Activate'}
+                </button>
+            </div>
+        </div>`
+    ).join('');
+}
+
+window.openAddTechModal = function() {
+    document.getElementById('tech-modal-title').textContent = 'Add Technician';
+    document.getElementById('tech-id').value = '';
+    document.getElementById('tech-name').value = '';
+    document.getElementById('tech-phone').value = '';
+    document.getElementById('tech-email').value = '';
+    document.getElementById('tech-speciality').value = '';
+    document.getElementById('tech-msg').classList.add('hidden');
+    document.getElementById('tech-modal').classList.remove('hidden');
+};
+
+window.openEditTechModal = function(techId) {
+    const tech = allTechnicians.find(t => t.id === techId);
+    if (!tech) return;
+    document.getElementById('tech-modal-title').textContent = 'Edit Technician';
+    document.getElementById('tech-id').value = tech.id;
+    document.getElementById('tech-name').value = tech.name;
+    document.getElementById('tech-phone').value = tech.phone || '';
+    document.getElementById('tech-email').value = tech.email || '';
+    document.getElementById('tech-speciality').value = tech.speciality || '';
+    document.getElementById('tech-msg').classList.add('hidden');
+    document.getElementById('tech-modal').classList.remove('hidden');
+};
+
+window.closeTechModal = function() {
+    document.getElementById('tech-modal').classList.add('hidden');
+};
+
+window.handleSaveTech = async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('tech-btn');
+    const msg = document.getElementById('tech-msg');
+    const id  = document.getElementById('tech-id').value;
+    btn.disabled = true; btn.textContent = 'Saving…'; msg.classList.add('hidden');
+    const body = {
+        name:       document.getElementById('tech-name').value.trim(),
+        phone:      document.getElementById('tech-phone').value.trim(),
+        email:      document.getElementById('tech-email').value.trim(),
+        speciality: document.getElementById('tech-speciality').value
+    };
+    try {
+        const url    = id ? '/api/admin/technicians/' + id : '/api/admin/technicians';
+        const method = id ? 'PUT' : 'POST';
+        const res    = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const data   = await res.json();
+        if (!res.ok) { msg.textContent = data.error || 'Failed.'; msg.className = 'text-xs font-bold rounded-lg px-3 py-2 bg-red-50 text-red-600'; msg.classList.remove('hidden'); return; }
+        await loadTechnicians();
+        closeTechModal();
+    } catch(ex) {
+        msg.textContent = 'Network error.'; msg.className = 'text-xs font-bold rounded-lg px-3 py-2 bg-red-50 text-red-600'; msg.classList.remove('hidden');
+    } finally { btn.disabled = false; btn.textContent = 'Save Technician'; }
+};
+
+window.removeTech = async function(techId) {
+    if (!confirm('Remove this technician?')) return;
+    try {
+        await fetch('/api/admin/technicians/' + techId, { method:'DELETE' });
+        await loadTechnicians();
+    } catch(e) { alert('Could not remove technician.'); }
+};
+
+window.toggleTechActive = async function(techId, active) {
+    try {
+        await fetch('/api/admin/technicians/' + techId, {
+            method:'PUT', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ active })
+        });
+        await loadTechnicians();
+    } catch(e) {}
+};
+
+// ── Admin WhatsApp send ────────────────────────────────────────────────────
+window.sendAdminWhatsApp = async function() {
+    const msg   = document.getElementById('wa-message').value.trim();
+    const el    = document.getElementById('wa-msg');
+    if (!msg) return;
+    try {
+        const res  = await fetch('/api/admin/send-whatsapp', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message: msg }) });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+            el.textContent = '✅ WhatsApp sent successfully!'; el.className = 'text-xs font-bold rounded-lg px-3 py-2 mt-2 bg-green-50 text-green-700 border border-green-200'; el.classList.remove('hidden');
+            document.getElementById('wa-message').value = '';
+        } else if (data.reason === 'not_configured') {
+            el.textContent = '⚠ WhatsApp not configured. Add CALLMEBOT_PHONE and CALLMEBOT_APIKEY to environment variables.'; el.className = 'text-xs font-bold rounded-lg px-3 py-2 mt-2 bg-amber-50 text-amber-700 border border-amber-200'; el.classList.remove('hidden');
+        } else {
+            el.textContent = '❌ Failed to send. Check CallMeBot configuration.'; el.className = 'text-xs font-bold rounded-lg px-3 py-2 mt-2 bg-red-50 text-red-700 border border-red-200'; el.classList.remove('hidden');
+        }
+    } catch(ex) { el.textContent = 'Network error.'; el.className = 'text-xs font-bold rounded-lg px-3 py-2 mt-2 bg-red-50 text-red-700'; el.classList.remove('hidden'); }
+    setTimeout(() => el.classList.add('hidden'), 5000);
+};
+
+// ── Fault Panel ────────────────────────────────────────────────────────────
+window.openFaultPanel = function(userId) {
+    currentFaultUserId = userId;
+    const client = allClients.find(c => c.userId === userId);
+    if (!client) return;
+    document.getElementById('fault-panel-client').textContent = `${client.firstName} ${client.lastName||''} — ${client.email}`;
+    renderFaultPanel(client.faultReports || []);
+    document.getElementById('fault-panel').classList.remove('hidden');
+};
+
+window.closeFaultPanel = function() {
+    document.getElementById('fault-panel').classList.add('hidden');
+    currentFaultUserId = '';
+};
+
+function renderFaultPanel(reports) {
+    if (!reports.length) {
+        document.getElementById('fault-panel-body').innerHTML = '<p class="text-sm text-slate-400 text-center py-8 font-bold">No fault reports.</p>';
+        return;
+    }
+    const STATUS_CLASS = { 'Logged':'fault-logged', 'In Progress':'fault-progress', 'Resolved':'fault-resolved', 'Closed':'fault-closed' };
+    const sorted = [...reports].sort((a,b) => new Date(b.loggedAt||0) - new Date(a.loggedAt||0));
+    document.getElementById('fault-panel-body').innerHTML = sorted.map(r => {
+        const urgColor = r.urgency === 'emergency' ? 'text-red-600' : r.urgency === 'high' ? 'text-amber-600' : 'text-slate-500';
+        const waMsg = encodeURIComponent(`FrostFlow Fault Update\nRef: ${r.id}\nStatus: ${r.status}\nDescription: ${r.description.slice(0,100)}`);
+        return `
+        <div class="border border-slate-200 rounded-xl p-4">
+            <div class="flex items-start justify-between gap-3 mb-2">
+                <div>
+                    <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">${r.id} · ${new Date(r.loggedAt).toLocaleDateString('en-ZA')}</p>
+                    <p class="text-sm font-bold text-slate-900">${escHtml(r.description)}</p>
+                    ${r.urgency ? `<p class="text-xs mt-0.5 font-black ${urgColor}">Urgency: ${escHtml(r.urgency).toUpperCase()}</p>` : ''}
+                    ${r.photoUrl ? `<a href="${escHtml(r.photoUrl)}" target="_blank" class="text-xs text-brand-blue font-bold mt-1 inline-block hover:underline">📎 View Photo</a>` : ''}
+                </div>
+                <span class="badge shrink-0 ${STATUS_CLASS[r.status]||'fault-logged'}">${r.status}</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 mt-3">
+                <select onchange="updateFaultStatus('${r.id}', this.value, this)" class="input-field text-xs py-1.5 flex-1" style="padding:0.375rem 0.75rem;min-width:150px;">
+                    <option value="" disabled ${!r.status?'selected':''}>Update status…</option>
+                    <option value="Logged" ${r.status==='Logged'?'selected':''}>Logged</option>
+                    <option value="In Progress" ${r.status==='In Progress'?'selected':''}>In Progress</option>
+                    <option value="Resolved" ${r.status==='Resolved'?'selected':''}>Resolved</option>
+                    <option value="Closed" ${r.status==='Closed'?'selected':''}>Closed</option>
+                </select>
+                <button onclick="sendFaultWhatsApp('${escHtml(r.id)}', '${escHtml(r.description.slice(0,60))}')" class="shrink-0 px-3 py-1.5 bg-green-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap">📲 WhatsApp</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+window.updateFaultStatus = async function(reportId, status, selectEl) {
+    selectEl.disabled = true;
+    try {
+        const res = await fetch('/api/admin/fault-report', {
+            method:'PUT', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ userId: currentFaultUserId, reportId, status })
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Failed to update.'); return; }
+        // Update local data
+        const client = allClients.find(c => c.userId === currentFaultUserId);
+        if (client) {
+            const r = (client.faultReports||[]).find(x => x.id === reportId);
+            if (r) r.status = status;
+        }
+        updateStats();
+        openFaultPanel(currentFaultUserId); // re-render panel
+    } catch(ex) { alert('Network error.'); }
+    finally { selectEl.disabled = false; }
+};
+
+window.sendFaultWhatsApp = async function(reportId, desc) {
+    const client = allClients.find(c => c.userId === currentFaultUserId);
+    const msg = `🔧 Fault Update\nClient: ${client ? client.firstName + ' ' + (client.lastName||'') : 'Unknown'}\nRef: ${reportId}\nDescription: ${desc}`;
+    try {
+        const res = await fetch('/api/admin/send-whatsapp', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message: msg }) });
+        const data = await res.json();
+        if (res.ok && data.ok) alert('WhatsApp sent ✓');
+        else if (data.reason === 'not_configured') alert('WhatsApp not configured (set CALLMEBOT_PHONE + CALLMEBOT_APIKEY env vars).');
+        else alert('Failed to send WhatsApp.');
+    } catch(ex) { alert('Network error.'); }
+};
+
+// ── Utility ────────────────────────────────────────────────────────────────
+function escHtml(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Close modals on backdrop click
+document.getElementById('visit-modal').addEventListener('click', function(e){ if(e.target===this) closeVisitModal(); });
+document.getElementById('fault-panel').addEventListener('click', function(e){ if(e.target===this) closeFaultPanel(); });
+document.getElementById('tech-modal').addEventListener('click', function(e){ if(e.target===this) closeTechModal(); });
+
+// Init
+init();
+
+}());
+</script>
+</body>
+</html>

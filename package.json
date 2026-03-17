@@ -1,0 +1,13 @@
+{
+  "name": "frostflow",
+  "version": "1.0.0",
+  "description": "FrostFlow Refrigeration — website & client portal",
+  "main": ".claude/serve.js",
+  "scripts": {
+    "start": "node .claude/serve.js",
+    "dev": "node .claude/serve.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

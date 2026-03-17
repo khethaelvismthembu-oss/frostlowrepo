@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FrostFlow Invoice</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f1f5f9;
+    color: #0f172a;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+  }
+
+  /* ── Toolbar (hidden on print) ── */
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 28px;
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: #004aad; color: #fff; }
+  .btn-primary:hover { background: #003380; }
+  .btn-secondary { background: #fff; color: #475569; border: 2px solid #e2e8f0; }
+  .btn-secondary:hover { border-color: #94a3b8; }
+
+  /* ── Invoice paper ── */
+  .invoice {
+    width: 100%;
+    max-width: 794px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 48px rgba(0,0,0,0.12);
+    overflow: hidden;
+  }
+
+  .invoice-header {
+    background: linear-gradient(135deg, #004aad 0%, #00337a 100%);
+    padding: 40px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+  }
+  .logo-text { font-size: 26px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: -0.5px; }
+  .logo-sub { font-size: 10px; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 3px; }
+  .logo-address { margin-top: 16px; font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.7; }
+
+  .invoice-title-block { text-align: right; }
+  .invoice-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 2px; }
+  .invoice-num { font-size: 28px; font-weight: 900; color: #fff; letter-spacing: -0.5px; margin-top: 2px; }
+  .invoice-date { font-size: 12px; color: rgba(255,255,255,0.75); margin-top: 4px; font-weight: 600; }
+
+  .status-banner {
+    padding: 12px 48px;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .status-banner.paid { background: #f0fdf4; color: #166534; }
+  .status-banner.pending { background: #fffbeb; color: #92400e; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status-banner.paid .status-dot { background: #22c55e; }
+  .status-banner.pending .status-dot { background: #f59e0b; }
+
+  .invoice-body { padding: 40px 48px; }
+
+  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 36px; }
+  .party-label { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+  .party-name { font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+  .party-detail { font-size: 13px; color: #64748b; font-weight: 500; line-height: 1.6; }
+
+  .divider { border: none; border-top: 1px solid #e2e8f0; margin: 0 0 32px; }
+
+  .line-items { width: 100%; border-collapse: collapse; margin-bottom: 32px; }
+  .line-items thead tr { border-bottom: 2px solid #e2e8f0; }
+  .line-items th { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; padding: 0 0 12px; text-align: left; }
+  .line-items th:last-child { text-align: right; }
+  .line-items tbody tr { border-bottom: 1px solid #f1f5f9; }
+  .line-items td { padding: 14px 0; font-size: 14px; color: #334155; vertical-align: top; }
+  .line-items td:last-child { text-align: right; font-weight: 700; color: #0f172a; }
+  .line-desc { font-weight: 700; color: #0f172a; }
+  .line-sub { font-size: 12px; color: #94a3b8; margin-top: 3px; font-weight: 500; }
+
+  .totals { display: flex; justify-content: flex-end; margin-bottom: 36px; }
+  .totals-table { min-width: 280px; }
+  .totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; color: #64748b; gap: 48px; }
+  .totals-row.total { border-top: 2px solid #e2e8f0; margin-top: 8px; padding-top: 14px; font-size: 18px; font-weight: 900; color: #0f172a; }
+  .totals-row.paid-note { color: #166534; font-weight: 700; font-size: 12px; margin-top: 4px; }
+
+  .info-box { background: #f8fafc; border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; }
+  .info-box-label { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
+  .info-box-text { font-size: 13px; color: #64748b; line-height: 1.6; }
+
+  /* Paid watermark */
+  .invoice-inner { position: relative; }
+  .paid-stamp {
+    position: absolute;
+    top: 55%;
+    right: 48px;
+    transform: translateY(-50%) rotate(-15deg);
+    font-size: 72px;
+    font-weight: 900;
+    color: rgba(34,197,94,0.10);
+    text-transform: uppercase;
+    letter-spacing: 6px;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .invoice-footer {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 24px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .footer-brand { font-size: 12px; font-weight: 600; color: #64748b; line-height: 1.6; }
+  .footer-brand strong { color: #0f172a; }
+  .footer-right { font-size: 11px; color: #94a3b8; text-align: right; line-height: 1.7; }
+
+  .error-state { text-align: center; padding: 64px 32px; color: #64748b; }
+  .error-state h2 { font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .toolbar { display: none !important; }
+    .invoice { box-shadow: none; border-radius: 0; max-width: 100%; }
+    .invoice-header, .status-banner, .info-box, .invoice-footer {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    @page { margin: 0; size: A4; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar" id="toolbar">
+  <button class="btn btn-primary" onclick="window.print()">
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+    </svg>
+    Download PDF / Print
+  </button>
+  <button class="btn btn-secondary" onclick="window.close()">✕ Close</button>
+</div>
+
+<div class="invoice">
+  <div class="error-state" id="error-state" style="display:none">
+    <h2>Invoice Not Found</h2>
+    <p>Please open this page from your FrostFlow client portal.</p>
+    <button class="btn btn-secondary" style="margin-top:20px" onclick="window.close()">Close</button>
+  </div>
+
+  <div class="invoice-inner" id="invoice-content" style="display:none">
+
+    <div class="invoice-header">
+      <div>
+        <div class="logo-text">❄ FrostFlow</div>
+        <div class="logo-sub">Refrigeration &amp; Air-Conditioning</div>
+        <div class="logo-address">
+          Blackheath, Cape Town, 7560<br>
+          +27 73 816 0885<br>
+          frostflowrefridgerations.co.za
+        </div>
+      </div>
+      <div class="invoice-title-block">
+        <div class="invoice-label">Invoice</div>
+        <div class="invoice-num" id="inv-number">—</div>
+        <div class="invoice-date" id="inv-date">—</div>
+      </div>
+    </div>
+
+    <div class="status-banner pending" id="status-banner">
+      <div class="status-dot"></div>
+      <span id="status-text">Pending Payment</span>
+    </div>
+
+    <div class="invoice-body">
+      <div class="parties">
+        <div>
+          <div class="party-label">Bill To</div>
+          <div class="party-name" id="client-name">—</div>
+          <div class="party-detail" id="client-detail">—</div>
+        </div>
+        <div>
+          <div class="party-label">Service Provider</div>
+          <div class="party-name">FrostFlow Refrigerations</div>
+          <div class="party-detail">
+            Blackheath, Cape Town, 7560<br>
+            info@frostflowrefridgerations.co.za<br>
+            +27 73 816 0885
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <table class="line-items">
+        <thead>
+          <tr>
+            <th style="width:58%">Description</th>
+            <th>Service Date</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody id="line-items-body"></tbody>
+      </table>
+
+      <div class="totals">
+        <div class="totals-table">
+          <div class="totals-row">
+            <span>Subtotal</span>
+            <span id="subtotal">R0.00</span>
+          </div>
+          <div class="totals-row">
+            <span>VAT (0%)</span>
+            <span>R0.00</span>
+          </div>
+          <div class="totals-row total">
+            <span>Total Due</span>
+            <span id="total-amount">R0.00</span>
+          </div>
+          <div class="totals-row paid-note" id="paid-note" style="display:none">
+            ✓ Payment received in full
+          </div>
+        </div>
+      </div>
+
+      <div class="info-box" id="notes-box" style="display:none">
+        <div class="info-box-label">Notes</div>
+        <div class="info-box-text" id="notes-text">—</div>
+      </div>
+
+      <div class="info-box">
+        <div class="info-box-label">Maintenance Plan</div>
+        <div class="info-box-text" id="plan-info">—</div>
+      </div>
+    </div>
+
+    <div class="paid-stamp" id="paid-stamp" style="display:none">PAID</div>
+
+    <div class="invoice-footer">
+      <div class="footer-brand">
+        <strong>FrostFlow Refrigerations</strong><br>
+        Thank you for your business. Payment queries: <strong>+27 73 816 0885</strong>
+      </div>
+      <div class="footer-right" id="footer-right">
+        Generated by FrostFlow Client Portal
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var raw = sessionStorage.getItem('frostflow_invoice');
+  if (!raw) { document.getElementById('error-state').style.display = ''; return; }
+
+  var inv;
+  try { inv = JSON.parse(raw); } catch (e) { document.getElementById('error-state').style.display = ''; return; }
+
+  document.getElementById('invoice-content').style.display = '';
+
+  var PLAN_NAMES = { domestic: 'Domestic Fridge Cover', aircon: 'Air Conditioning Cover', commercial: 'Commercial Unit Cover' };
+
+  // Invoice ID + date
+  var invId = inv.id || ('SRV-' + String(inv.date || '').replace(/\W/g, '').slice(-8).toUpperCase());
+  var invDate = inv.date ? new Date(inv.date) : new Date();
+  document.getElementById('inv-number').textContent = invId;
+  document.getElementById('inv-date').textContent = 'Date: ' + invDate.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+  document.title = 'Invoice ' + invId + ' — FrostFlow';
+
+  // Paid / pending
+  var paid = inv.status === 'Paid' || inv.paid === true;
+  var banner = document.getElementById('status-banner');
+  banner.className = 'status-banner ' + (paid ? 'paid' : 'pending');
+  document.getElementById('status-text').textContent = paid ? '✓ Paid in Full' : 'Payment Pending';
+  if (paid) {
+    document.getElementById('paid-stamp').style.display = '';
+    document.getElementById('paid-note').style.display = 'flex';
+  }
+
+  // Client
+  document.getElementById('client-name').textContent = inv.clientName || '—';
+  var details = [];
+  if (inv.clientEmail) details.push(inv.clientEmail);
+  if (inv.clientPhone) details.push(inv.clientPhone);
+  document.getElementById('client-detail').innerHTML = details.join('<br>') || '—';
+
+  // Plan
+  var planKey = inv.plan || '';
+  document.getElementById('plan-info').textContent = PLAN_NAMES[planKey] || (planKey ? planKey : 'Standard Maintenance Plan');
+
+  // Line items
+  var amount = parseFloat(inv.amount) || 0;
+  var desc = inv.description || inv.type || 'Service Visit';
+  var tech = inv.technician || '';
+  document.getElementById('line-items-body').innerHTML =
+    '<tr>' +
+      '<td><div class="line-desc">' + esc(desc) + '</div>' +
+        (tech ? '<div class="line-sub">Technician: ' + esc(tech) + '</div>' : '') +
+      '</td>' +
+      '<td style="white-space:nowrap">' + invDate.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) + '</td>' +
+      '<td>R' + amount.toFixed(2) + '</td>' +
+    '</tr>';
+
+  // Totals
+  document.getElementById('subtotal').textContent = 'R' + amount.toFixed(2);
+  document.getElementById('total-amount').textContent = 'R' + amount.toFixed(2);
+
+  // Notes
+  if (inv.notes) {
+    document.getElementById('notes-box').style.display = '';
+    document.getElementById('notes-text').textContent = inv.notes;
+  }
+
+  // Footer
+  if (tech) {
+    document.getElementById('footer-right').innerHTML = 'Serviced by: <strong>' + esc(tech) + '</strong><br>FrostFlow Certified Technician';
+  }
+
+  // Auto-open print dialog (once)
+  if (!window.location.hash) {
+    window.location.hash = 'ready';
+    setTimeout(function () { window.print(); }, 900);
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+})();
+</script>
+</body>
+</html>
