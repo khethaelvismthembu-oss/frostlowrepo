@@ -70,6 +70,24 @@
             <!-- Alert banner -->
             <div id="alert" class="hidden mx-6 mt-4 px-4 py-3 rounded-xl text-sm font-bold"></div>
 
+            <!-- ── EMAIL VERIFICATION SCREEN ── -->
+            <div id="verify-screen" class="hidden px-8 py-8 text-center">
+                <div class="w-16 h-16 bg-brand-blue/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                </div>
+                <h2 class="text-lg font-black text-slate-900 mb-2">Check your inbox</h2>
+                <p class="text-sm text-slate-500 font-medium mb-1">We've sent a verification link to:</p>
+                <p id="verify-email-display" class="text-sm font-black text-brand-blue mb-5"></p>
+                <p class="text-xs text-slate-400 font-medium mb-6">Click the link in the email to activate your account. The link expires in 24 hours.</p>
+                <div id="resend-msg" class="hidden mb-3 text-xs font-bold rounded-lg px-3 py-2"></div>
+                <button id="resend-btn" onclick="resendVerificationFromScreen()" class="w-full py-3 border-2 border-brand-blue text-brand-blue font-black uppercase tracking-wider text-xs rounded-xl hover:bg-brand-blue hover:text-white transition-colors">
+                    Resend Verification Email
+                </button>
+                <button onclick="switchTab('login')" class="mt-3 w-full py-3 bg-slate-100 text-slate-600 font-black uppercase tracking-wider text-xs rounded-xl hover:bg-slate-200 transition-colors">
+                    Back to Sign In
+                </button>
+            </div>
+
             <div class="px-8 py-6">
 
                 <!-- ── LOGIN FORM ── -->
@@ -208,9 +226,9 @@
         };
 
         // ── Alert helper
-        function showAlert(msg, type) {
+        function showAlert(msg, type, extra) {
             const el = document.getElementById('alert');
-            el.textContent = msg;
+            el.innerHTML = msg + (extra || '');
             el.className = 'mx-6 mt-4 px-4 py-3 rounded-xl text-sm font-bold ' +
                 (type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200');
             el.classList.remove('hidden');
@@ -273,7 +291,15 @@
                     body: JSON.stringify({ email, password })
                 });
                 const data = await res.json();
-                if (!res.ok) { showAlert(data.error || 'Login failed. Please try again.', 'error'); return; }
+                if (!res.ok) {
+                    if (data.errorCode === 'EMAIL_NOT_VERIFIED') {
+                        const resendBtn = ` <button type="button" onclick="resendVerification('${data.email}')" style="text-decoration:underline;font-weight:900;cursor:pointer;background:none;border:none;color:inherit;padding:0;">Resend verification email</button>`;
+                        showAlert(data.error, 'error', resendBtn);
+                    } else {
+                        showAlert(data.error || 'Login failed. Please try again.', 'error');
+                    }
+                    return;
+                }
                 showAlert('Welcome back, ' + data.firstName + '! Redirecting…', 'success');
                 setTimeout(() => { location.href = 'dashboard.html'; }, 900);
             } catch(err) {
@@ -321,12 +347,43 @@
                 });
                 const data = await res.json();
                 if (!res.ok) { showAlert(data.error || 'Registration failed. Please try again.', 'error'); return; }
-                showAlert('Account created! Welcome, ' + data.firstName + '! Setting up your portal…', 'success');
-                setTimeout(() => { location.href = 'dashboard.html'; }, 1200);
+                // Show email verification screen instead of auto-redirect
+                document.getElementById('register-form').classList.add('hidden');
+                document.getElementById('tab-register').classList.remove('active');
+                document.getElementById('alert').className = 'hidden';
+                document.getElementById('verify-screen').classList.remove('hidden');
+                document.getElementById('verify-email-display').textContent = data.email;
             } catch(err) {
                 showAlert('Network error. Please ensure the server is running.', 'error');
             } finally {
                 setLoading('reg-btn', false);
+            }
+        };
+
+        // ── Resend verification (called from login error link)
+        window.resendVerification = async function(email) {
+            clearAlert();
+            try {
+                await fetch('/api/auth/resend-verification', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+                showAlert('Verification email resent to ' + email + '. Check your inbox.', 'success');
+            } catch(e) { showAlert('Could not resend. Please try again.', 'error'); }
+        };
+
+        // ── Resend from the verify screen
+        window.resendVerificationFromScreen = async function() {
+            const email = document.getElementById('verify-email-display').textContent;
+            const btn = document.getElementById('resend-btn');
+            const msg = document.getElementById('resend-msg');
+            btn.disabled = true; btn.textContent = 'Sending…';
+            try {
+                await fetch('/api/auth/resend-verification', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+                msg.textContent = '✅ Email resent! Check your inbox (and spam folder).';
+                msg.className = 'mb-3 text-xs font-bold rounded-lg px-3 py-2 bg-green-50 text-green-700 border border-green-200';
+            } catch(e) {
+                msg.textContent = 'Network error. Please try again.';
+                msg.className = 'mb-3 text-xs font-bold rounded-lg px-3 py-2 bg-red-50 text-red-700 border border-red-200';
+            } finally {
+                btn.disabled = false; btn.textContent = 'Resend Verification Email';
             }
         };
 

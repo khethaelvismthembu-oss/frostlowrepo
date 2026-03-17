@@ -109,6 +109,71 @@ try { if (!useSupabase && fs.existsSync(EMAIL_FILE)) emailIndex = JSON.parse(fs.
 function saveSessions()   { if (!useSupabase) try { fs.writeFileSync(SESS_FILE,  JSON.stringify(sessions),   'utf8'); } catch(e) {} }
 function saveEmailIndex() { if (!useSupabase) try { fs.writeFileSync(EMAIL_FILE, JSON.stringify(emailIndex), 'utf8'); } catch(e) {} }
 
+// ── Email sending via Resend API (zero npm — pure https) ──────────────────────
+// Get a free key at https://resend.com (100 emails/day free)
+// Add RESEND_API_KEY to Render → Environment Variables
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const EMAIL_FROM     = process.env.EMAIL_FROM || 'FrostFlow <noreply@frostflowrefridgerations.co.za>';
+const SITE_URL       = process.env.SITE_URL  || 'https://www.frostflowrefridgerations.co.za';
+
+function sendEmail(to, subject, htmlBody) {
+  return new Promise((resolve) => {
+    if (!RESEND_API_KEY) {
+      console.log('[EMAIL] No RESEND_API_KEY — skipping send to:', to, '|', subject);
+      return resolve({ ok: false, reason: 'no_api_key' });
+    }
+    const payload = JSON.stringify({ from: EMAIL_FROM, to: [to], subject, html: htmlBody });
+    const req = https.request({
+      hostname: 'api.resend.com', port: 443, path: '/emails', method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+    }, r => { let d = ''; r.on('data', c => d += c); r.on('end', () => { console.log('[EMAIL] →', to, 'status', r.statusCode); resolve({ ok: r.statusCode < 300 }); }); });
+    req.on('error', e => { console.error('[EMAIL] Error:', e.message); resolve({ ok: false }); });
+    req.write(payload); req.end();
+  });
+}
+
+function makeVerifyEmailHtml(firstName, verifyUrl) {
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#004aad,#00337a);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:-0.5px;">❄ FrostFlow</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Refrigeration &amp; Air-Conditioning</div>
+    </div>
+    <div style="padding:36px;">
+      <h1 style="font-size:21px;font-weight:800;color:#0f172a;margin:0 0 10px;">Verify your email address</h1>
+      <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 28px;">Hi ${firstName}, welcome to the FrostFlow Client Portal! Click the button below to verify your email and activate your account.</p>
+      <div style="text-align:center;margin:32px 0;">
+        <a href="${verifyUrl}" style="display:inline-block;background:#004aad;color:#fff;font-weight:800;font-size:14px;text-decoration:none;padding:14px 40px;border-radius:50px;text-transform:uppercase;letter-spacing:0.5px;">Verify My Email</a>
+      </div>
+      <p style="color:#94a3b8;font-size:11px;text-align:center;margin:0;">Link expires in 24 hours. If you didn't create this account, ignore this email.</p>
+    </div>
+    <div style="background:#f8fafc;padding:18px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="color:#94a3b8;font-size:10px;margin:0;">FrostFlow · Blackheath, Cape Town · +27 73 816 0885 · frostflowrefridgerations.co.za</p>
+    </div>
+  </div></body></html>`;
+}
+
+function makePasswordResetEmailHtml(firstName, resetUrl) {
+  return `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:32px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:#fff;text-transform:uppercase;">❄ FrostFlow</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Password Reset Request</div>
+    </div>
+    <div style="padding:36px;">
+      <h1 style="font-size:21px;font-weight:800;color:#0f172a;margin:0 0 10px;">Reset your password</h1>
+      <p style="color:#475569;font-size:14px;line-height:1.7;margin:0 0 28px;">Hi ${firstName}, we received a request to reset your FrostFlow account password. Click below to set a new password. This link expires in 1 hour.</p>
+      <div style="text-align:center;margin:32px 0;">
+        <a href="${resetUrl}" style="display:inline-block;background:#0f172a;color:#fff;font-weight:800;font-size:14px;text-decoration:none;padding:14px 40px;border-radius:50px;text-transform:uppercase;letter-spacing:0.5px;">Reset My Password</a>
+      </div>
+      <p style="color:#94a3b8;font-size:11px;text-align:center;margin:0;">If you didn't request this, you can safely ignore this email. Your password will not change.</p>
+    </div>
+    <div style="background:#f8fafc;padding:18px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="color:#94a3b8;font-size:10px;margin:0;">FrostFlow · Blackheath, Cape Town · +27 73 816 0885</p>
+    </div>
+  </div></body></html>`;
+}
+
 // ── Supabase PostgREST helper (uses Node built-in https — zero npm dependencies) ──
 function supaFetch(table, method, body, query, prefer) {
   return new Promise((resolve, reject) => {
@@ -142,7 +207,14 @@ function toRow(p) {
     email: p.email, phone: p.phone || '', plan: p.plan || '',
     password_hash: p.passwordHash, password_salt: p.passwordSalt,
     created_at: p.createdAt, updated_at: p.updatedAt || null,
-    service_history: p.serviceHistory || []
+    service_history: p.serviceHistory || [],
+    email_verified: p.emailVerified || false,
+    email_verif_token: p.emailVerifToken || null,
+    email_verif_expiry: p.emailVerifExpiry || null,
+    status: p.status || 'active',
+    appliances: p.appliances || [],
+    fault_reports: p.faultReports || [],
+    settings: p.settings || {}
   };
 }
 function fromRow(r) {
@@ -151,7 +223,14 @@ function fromRow(r) {
     email: r.email, phone: r.phone, plan: r.plan,
     passwordHash: r.password_hash, passwordSalt: r.password_salt,
     createdAt: r.created_at, updatedAt: r.updated_at,
-    serviceHistory: r.service_history || []
+    serviceHistory: r.service_history || [],
+    emailVerified: r.email_verified || false,
+    emailVerifToken: r.email_verif_token || null,
+    emailVerifExpiry: r.email_verif_expiry || null,
+    status: r.status || 'active',
+    appliances: r.appliances || [],
+    faultReports: r.fault_reports || [],
+    settings: r.settings || {}
   };
 }
 
@@ -239,21 +318,28 @@ http.createServer((req, res) => {
         const norm = email.trim().toLowerCase();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(norm))
           return jsonRes(res, 400, { error: 'Invalid email address.' });
+        // Strict uniqueness — email cannot be registered on multiple accounts
         if (await emailExists(norm))
-          return jsonRes(res, 409, { error: 'An account with this email already exists.' });
-        const userId = crypto.randomBytes(16).toString('hex');
-        const salt   = crypto.randomBytes(32).toString('hex');
+          return jsonRes(res, 409, { error: 'An account with this email already exists. Please sign in or use a different email.' });
+        const userId      = crypto.randomBytes(16).toString('hex');
+        const salt        = crypto.randomBytes(32).toString('hex');
+        const verifToken  = crypto.randomBytes(32).toString('hex');
+        const verifExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
         const profile = {
           userId, firstName: firstName.trim(), lastName: (lastName || '').trim(),
           email: norm, phone: (phone || '').trim(), plan: plan || '',
           passwordHash: hashPassword(password, salt), passwordSalt: salt,
-          createdAt: new Date().toISOString(), serviceHistory: []
+          createdAt: new Date().toISOString(), serviceHistory: [],
+          emailVerified: false, emailVerifToken: verifToken, emailVerifExpiry: verifExpiry,
+          status: 'pending_verification'
         };
         await writeProfile(userId, profile);
         if (!useSupabase) { emailIndex[norm] = userId; saveEmailIndex(); }
-        const token = createSession(userId, norm);
-        jsonRes(res, 200, { ok: true, firstName: profile.firstName, email: norm, plan: profile.plan },
-          { 'Set-Cookie': `ff_session=${token}; ${SESSION_COOKIE_OPTS}` });
+        // Send verification email (non-blocking — registration succeeds regardless)
+        const verifyUrl = `${SITE_URL}/verify-email.html?token=${verifToken}`;
+        sendEmail(norm, 'Verify your FrostFlow account', makeVerifyEmailHtml(profile.firstName, verifyUrl))
+          .catch(e => console.error('[register email]', e.message));
+        jsonRes(res, 200, { ok: true, requiresVerification: true, firstName: profile.firstName, email: norm });
       } catch(e) {
         console.error('[register]', e.message);
         jsonRes(res, 500, { error: 'Registration failed. Please try again.' });
@@ -272,12 +358,84 @@ http.createServer((req, res) => {
         const profile = await findUserByEmail(norm);
         if (!profile || hashPassword(password, profile.passwordSalt) !== profile.passwordHash)
           return jsonRes(res, 401, { error: 'Invalid email or password.' });
+        // Block login for accounts that haven't verified their email
+        if (!profile.emailVerified)
+          return jsonRes(res, 403, { error: 'Please verify your email address before signing in. Check your inbox for a verification link.', errorCode: 'EMAIL_NOT_VERIFIED', email: norm });
         const token = createSession(profile.userId, norm);
         jsonRes(res, 200, { ok: true, firstName: profile.firstName, email: norm, plan: profile.plan },
           { 'Set-Cookie': `ff_session=${token}; ${SESSION_COOKIE_OPTS}` });
       } catch(e) {
         console.error('[login]', e.message);
         jsonRes(res, 500, { error: 'Login failed. Please try again.' });
+      }
+    })();
+    return;
+  }
+
+  // GET /api/auth/verify-email?token=xxx
+  if (parsed.pathname === '/api/auth/verify-email' && req.method === 'GET') {
+    (async () => {
+      const token = parsed.searchParams.get('token');
+      if (!token || token.length !== 64) return jsonRes(res, 400, { error: 'Invalid verification token.' });
+      try {
+        // Find user by token — Supabase path
+        let profile = null;
+        if (useSupabase) {
+          const { rows } = await supaFetch('clients', 'GET', null, 'email_verif_token=eq.' + token + '&select=*');
+          if (rows[0]) profile = fromRow(rows[0]);
+        } else {
+          // File fallback: scan all profiles
+          for (const uid of Object.values(emailIndex)) {
+            const p = await readProfile(uid);
+            if (p && p.emailVerifToken === token) { profile = p; break; }
+          }
+        }
+        if (!profile) return jsonRes(res, 404, { error: 'Verification link is invalid or has already been used.' });
+        if (profile.emailVerified) return jsonRes(res, 200, { ok: true, alreadyVerified: true, firstName: profile.firstName });
+        if (profile.emailVerifExpiry && new Date(profile.emailVerifExpiry) < new Date())
+          return jsonRes(res, 410, { error: 'Verification link has expired. Please request a new one.', errorCode: 'TOKEN_EXPIRED', email: profile.email });
+        // Mark verified
+        profile.emailVerified   = true;
+        profile.emailVerifToken  = null;
+        profile.emailVerifExpiry = null;
+        profile.status           = 'active';
+        profile.updatedAt        = new Date().toISOString();
+        await writeProfile(profile.userId, profile);
+        // Auto-login the user
+        const sessionToken = createSession(profile.userId, profile.email);
+        jsonRes(res, 200, { ok: true, firstName: profile.firstName, email: profile.email, plan: profile.plan },
+          { 'Set-Cookie': `ff_session=${sessionToken}; ${SESSION_COOKIE_OPTS}` });
+      } catch(e) {
+        console.error('[verify-email]', e.message);
+        jsonRes(res, 500, { error: 'Verification failed. Please try again.' });
+      }
+    })();
+    return;
+  }
+
+  // POST /api/auth/resend-verification
+  if (parsed.pathname === '/api/auth/resend-verification' && req.method === 'POST') {
+    (async () => {
+      try {
+        const { email } = await parseBody(req);
+        if (!email) return jsonRes(res, 400, { error: 'Email is required.' });
+        const norm    = email.trim().toLowerCase();
+        const profile = await findUserByEmail(norm);
+        // Always return 200 to prevent email enumeration
+        if (!profile || profile.emailVerified) return jsonRes(res, 200, { ok: true });
+        const verifToken  = crypto.randomBytes(32).toString('hex');
+        const verifExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        profile.emailVerifToken  = verifToken;
+        profile.emailVerifExpiry = verifExpiry;
+        profile.updatedAt        = new Date().toISOString();
+        await writeProfile(profile.userId, profile);
+        const verifyUrl = `${SITE_URL}/verify-email.html?token=${verifToken}`;
+        sendEmail(norm, 'Verify your FrostFlow account', makeVerifyEmailHtml(profile.firstName, verifyUrl))
+          .catch(e => console.error('[resend-verif email]', e.message));
+        jsonRes(res, 200, { ok: true });
+      } catch(e) {
+        console.error('[resend-verification]', e.message);
+        jsonRes(res, 500, { error: 'Could not resend verification email.' });
       }
     })();
     return;
