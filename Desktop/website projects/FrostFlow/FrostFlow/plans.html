@@ -15,8 +15,9 @@
                     fontFamily: { sans: ['Inter','sans-serif'] },
                     colors: {
                         brand: {
-                            blue:'#004aad', dark:'#00337a', teal:'#00b87c',
-                            tealDark:'#009565', green:'#00a65a', greenDark:'#008548'
+                            blue:'#1a3e6e', dark:'#0d2234', teal:'#38c5f5',
+                            tealDark:'#22acd8', green:'#38c5f5', greenDark:'#22acd8',
+                            cyan:'#38c5f5', cyanDark:'#22acd8', navy:'#1a3e6e'
                         }
                     }
                 }
@@ -25,7 +26,7 @@
     </script>
     <style>
         body { background:#fff; overflow-x:hidden; }
-        .step-line::after { content:''; position:absolute; top:2rem; left:calc(50% + 2rem); right:calc(-50% + 2rem); height:2px; background:linear-gradient(90deg,#004aad,#00b87c); }
+        .step-line::after { content:''; position:absolute; top:2rem; left:calc(50% + 2rem); right:calc(-50% + 2rem); height:2px; background:linear-gradient(90deg,#1a3e6e,#38c5f5); }
         @media(max-width:767px){ .step-line::after { display:none; } }
         .plan-card { transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease; }
         .plan-card:hover { transform: translateY(-8px); box-shadow: 0 24px 48px rgba(0,0,0,0.14); }
